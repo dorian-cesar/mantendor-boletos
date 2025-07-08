@@ -1,7 +1,6 @@
 body {
   min-height: 100vh;
-  margin: 0;
-  padding: 2rem;
+  margin: 0;  
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9,7 +8,6 @@ body {
   background: linear-gradient(to bottom right, rgba(235, 127, 51, 0.05), rgba(235, 127, 51, 0.1));
   overflow-x: hidden;
 }
-
 
 .gradient-bg {
   background: linear-gradient(to right, #ff5500, #ff5500cc, #003fa2);
