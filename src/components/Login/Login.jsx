@@ -12,10 +12,7 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const API_TIMEOUT = 10000;
-  const navigate = useNavigate();
-
-  const formRef = useRef();
-  const spinnerRef = useRef();
+  const navigate = useNavigate();  
 
   useEffect(() => {
     const rememberedSession = localStorage.getItem('rememberedSession');
@@ -141,7 +138,7 @@ function Login() {
           <h5 className="text-login fw-bold">Acceso de Mantenedor</h5>
         </div>
         <div className="card-body p-4">
-          <form ref={formRef} onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label htmlFor="email" className="form-label fw-bold text-login">Correo Electrónico</label>
               <div className="input-group">
@@ -191,7 +188,7 @@ function Login() {
             <div className="d-grid mb-3">
               <button type="submit" className="btn btn-warning fw-bold" disabled={loading}>
                 <span>Iniciar Sesión</span>
-                {loading && <span className="spinner-border spinner-border-sm ms-2" ref={spinnerRef} role="status"></span>}
+                {loading && <span className="spinner-border spinner-border-sm ms-2" role="status"></span>}
               </button>
             </div>
           </form>
