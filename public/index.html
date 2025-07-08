@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="../img/logo-pullman-min.png" />
+  <title>Panel de Administración</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+<body class="d-flex align-items-center justify-content-center py-5">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="rounded-4 bg-warning bg-opacity-75 d-inline-flex p-4 position-relative shadow floating" style="width: 96px; height: 96px;">
+        <img src="/img/bus.svg" alt="Ícono de bus" class="img-fluid" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <h1 class="gradient-bg fw-bold display-5 mt-3">Panel de Administración</h1>
+      <p class="text-secondary">Mantenedor Sistema de Gestión de Pasajes</p>
+    </div>
+
+    <div class="card shadow rounded-4 border-0 bg-white bg-opacity-75 mx-auto w-100" style="max-width: 420px;">
+      <div class="card-header bg-transparent border-bottom-0 text-center pt-4">
+        <h5 class="text-warning fw-bold">Acceso de Mantenedor</h5>        
+      </div>
+      <div class="card-body p-4">
+        <form id="form-inicio">
+          <div class="mb-3">
+            <label for="email" class="form-label fw-bold text-warning">Correo Electrónico</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white border-warning text-warning"><i class="bi bi-person"></i></span>
+              <input type="email" class="form-control border-warning" id="email" placeholder="admin@empresa.com" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="password" class="form-label fw-bold text-warning">Contraseña</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white border-warning text-warning"><i class="bi bi-lock"></i></span>
+              <input type="password" class="form-control border-warning" id="password" placeholder="••••••••" required>
+              <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                <i class="bi bi-eye" id="iconoPassword"></i>
+              </button>
+            </div>
+          </div>
+         
+
+          <div class="form-check mb-3">
+            <input class="form-check-input border-warning" type="checkbox" id="rememberMe">
+            <label class="form-check-label text-muted" for="rememberMe">Recordar sesión</label>
+          </div>
+
+          <div class="d-grid mb-3">
+            <button type="submit" class="btn btn-warning fw-bold" id="btn-ingresar">
+              <span>Iniciar Sesión</span>
+              <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner" role="status"></span>
+            </button>
+          </div>          
+        </form>
+      </div>
+    </div>
+
+    <div class="text-center mt-4">
+      <p class="text-muted small">¿Problemas para acceder?</p>
+      <div class="d-flex justify-content-center gap-3">
+        <button class="btn btn-warning btn-sm">📞 Contactar soporte técnico</button>
+        <button class="btn btn-primary btn-sm">📧 Enviar ticket de ayuda</button>
+      </div>
+      <p class="text-secondary mt-4 small">© 2025 WIT Innovasión Tecnológica</p>
+    </div>
+  </div>
+
+  <script src="/js/login.js"></script>
+  <script src="/js/toast.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">  
+</body>
+</html>
