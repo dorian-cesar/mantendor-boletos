@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import './ModalBase.css';
+
 
 // Tamaños de modal disponibles
 const sizeClasses = {
@@ -52,18 +54,7 @@ const ModalBase = ({ visible, title, onClose, children, footer, size = 'md' }) =
   if (!visible) return null;
 
   return (
-    <div
-      className="modal-overlay d-flex justify-content-center align-items-center"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        zIndex: 1050, // Asegura que esté sobre otros elementos
-      }}
-    >
+    <div className="modal-overlay d-flex justify-content-center align-items-center">
       <div
         ref={modalRef}
         className="bg-white text-dark rounded-4 shadow-lg d-flex flex-column"
