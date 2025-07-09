@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import '@components/Login/login.css';
-import { showToast } from '@components/Toast/toast';
+import { showToast } from '@components/Toast/Toast';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';

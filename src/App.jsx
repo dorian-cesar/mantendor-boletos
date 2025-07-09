@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from '@components/Login/Login';
 import Dashboard from '@components/Dashboard/Dashboard';
 import Usuarios from '@pages/Usuarios';
-import { ToastContainer } from '@components/Toast/toast';
+import { ToastContainer } from '@components/Toast/Toast';
 
 function App() {
   return (
