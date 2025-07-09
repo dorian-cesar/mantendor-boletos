@@ -8,14 +8,14 @@ const Sidebar = ({ activeItem }) => {
 
   const handleLogout = () => {
     sessionStorage.removeItem('token');
-    sessionStorage.removeItem('usuario');  
-    localStorage.removeItem('rememberedSession');
+    sessionStorage.removeItem('user');  
+    localStorage.removeItem('recordarSession');
     navigate('/');
   };
 
   return (
     <nav className="sidebar">
-      <h2>Admin Tickets</h2>
+      <h2>Admin Boletos</h2>
       <a href="#" className={activeItem === 'dashboard' ? 'active' : ''}>
         <HouseDoor className="me-2" /> Dashboard
       </a>

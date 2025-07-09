@@ -40,10 +40,10 @@ const Dashboard = () => {
     } 
     // 2. If not in sessionStorage, check localStorage
     else {
-      const rememberedSession = localStorage.getItem('rememberedSession');
-      if (rememberedSession) {
+      const recordarSession = localStorage.getItem('recordarSession');
+      if (recordarSession) {
         try {
-          const sessionData = JSON.parse(rememberedSession);
+          const sessionData = JSON.parse(recordarSession);
           user = sessionData.user;
         } catch (e) {
           console.error("Failed to parse remembered session:", e);

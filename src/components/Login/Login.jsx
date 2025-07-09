@@ -15,14 +15,14 @@ function Login() {
   const navigate = useNavigate();  
 
   useEffect(() => {
-    const rememberedSession = localStorage.getItem('rememberedSession');
-    if (rememberedSession) {
-      const sessionData = JSON.parse(rememberedSession);
+    const recordarSession = localStorage.getItem('recordarSession');
+    if (recordarSession) {
+      const sessionData = JSON.parse(recordarSession);
       if (sessionData.expiresAt > Date.now()) {
         setRememberMe(true);
         setEmail(sessionData.user?.email || '');
       } else {
-        localStorage.removeItem('rememberedSession');
+        localStorage.removeItem('recordarSession');
       }
     }
   }, []);
@@ -38,7 +38,7 @@ function Login() {
         user,
         expiresAt: expirationDate.getTime()
       };
-      localStorage.setItem('rememberedSession', JSON.stringify(sessionData));
+      localStorage.setItem('recordarSession', JSON.stringify(sessionData));
     } else {
       sessionStorage.setItem('token', token);
       sessionStorage.setItem('user', JSON.stringify(user));
@@ -111,7 +111,7 @@ function Login() {
     } catch (error) {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      localStorage.removeItem('rememberedSession');
+      localStorage.removeItem('recordarSession');
 
       const mensaje = error.name === 'AbortError'
         ? 'La solicitud tardó demasiado. Por favor intente nuevamente.'
