@@ -10,6 +10,8 @@ const Usuarios = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const usuariosPorPagina = 10;
   const [modalVisible, setModalVisible] = useState(false);
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [usuarioEditandoId, setUsuarioEditandoId] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -24,27 +26,42 @@ const Usuarios = () => {
   };
 
   const handleGuardarUsuario = async () => {
-    if (formData.password.length < 8) {
+    if (!modoEdicion && formData.password.length < 8) {
       showToast('Error', 'La contraseña debe tener al menos 8 caracteres.', true);
       return;
     }
 
+    const token = sessionStorage.getItem("token") || JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
+
     try {
-      const res = await fetch('https://boletos.dev-wit.com/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const url = modoEdicion
+        ? `https://boletos.dev-wit.com/api/users/${usuarioEditandoId}`
+        : 'https://boletos.dev-wit.com/api/users/register';
+
+      const method = modoEdicion ? 'PUT' : 'POST';
+      const bodyData = { ...formData };
+      if (modoEdicion) delete bodyData.password; // No se actualiza contraseña
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(bodyData),
       });
 
-      if (!res.ok) throw new Error('No se pudo registrar el usuario.');
+      if (!res.ok) throw new Error(`Error al ${modoEdicion ? 'editar' : 'registrar'} el usuario.`);
 
-      showToast('Éxito', 'Usuario registrado correctamente.');
+      showToast('Éxito', `Usuario ${modoEdicion ? 'editado' : 'registrado'} correctamente.`);
       setModalVisible(false);
+      setModoEdicion(false);
+      setUsuarioEditandoId(null);
       setFormData({ name: '', email: '', role: 'admin', password: '' });
-      fetchUsuarios(); // Recargar usuarios
+      fetchUsuarios();
     } catch (err) {
       console.error(err);
-      showToast('Error', err.message || 'Error al registrar usuario.', true);
+      showToast('Error', err.message || 'Error al guardar usuario.', true);
     }
   };
 
@@ -117,6 +134,41 @@ const Usuarios = () => {
     });
   };
 
+  const handleEditarUsuario = (usuario) => {
+    setModoEdicion(true);
+    setUsuarioEditandoId(usuario._id);
+    setFormData({
+      name: usuario.name,
+      email: usuario.email,
+      role: usuario.role,
+      password: '', // no se muestra
+    });
+    setModalVisible(true);
+  };
+
+  const handleEliminarUsuario = async (id) => {
+    if (!window.confirm("¿Estás seguro de eliminar este usuario?")) return;
+
+    const token = sessionStorage.getItem("token") || JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
+
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) throw new Error("No se pudo eliminar el usuario.");
+
+      showToast('Éxito', 'Usuario eliminado correctamente.');
+      fetchUsuarios();
+    } catch (err) {
+      console.error(err);
+      showToast('Error', err.message || 'Error al eliminar usuario.', true);
+    }
+  };
+
   return (
     <>
       <div className="dashboard-container">
@@ -156,6 +208,7 @@ const Usuarios = () => {
                     <th>Email</th>
                     <th>Rol</th>
                     <th>Fecha de Registro</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -165,6 +218,20 @@ const Usuarios = () => {
                       <td>{usuario.email}</td>
                       <td>{usuario.role}</td>
                       <td>{formatearFecha(usuario.createdAt)}</td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-primary me-2"
+                          onClick={() => handleEditarUsuario(usuario)}
+                        >
+                          <i className="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleEliminarUsuario(usuario._id)}
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -202,7 +269,11 @@ const Usuarios = () => {
         size="lg"
         footer={
           <div className="d-flex justify-content-end gap-2 px-2">
-            <button className="btn btn-outline-secondary" onClick={() => setModalVisible(false)}>Cancelar</button>
+            <button className="btn btn-outline-secondary" onClick={() => {
+              setModalVisible(false);
+              setModoEdicion(false);
+              setUsuarioEditandoId(null);
+              setFormData({ name: '', email: '', role: 'admin', password: '' });}}>Cancelar</button>
             <button className="btn btn-primary" onClick={handleGuardarUsuario}>Guardar</button>
           </div>
         }
