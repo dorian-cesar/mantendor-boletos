@@ -81,103 +81,113 @@ const Servicios = () => {
       <div className="dashboard-container">
         <Sidebar activeItem="servicios" />
         <main className="main-content">
-          <div className="header d-flex justify-content-between align-items-center">
-            <div>
-              <h1>Servicios para el día siguiente</h1>
-              {servicios.length > 0 && (
-                <p className="text-muted">{formatearFecha(servicios[0].date)}</p>
-              )}
+          <div className="header">
+            <h1 className="mb-0">Gestión de servicios</h1> 
+            <p className="text-muted">Aquí puedes ver y programar nuevos servicios de bus</p>                       
+          </div>
+          <div className="stats-box">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h4 className="mb-0">
+                Servicios programados para mañana ({new Date(Date.now() + 86400000).toLocaleDateString('es-CL', { day: '2-digit', month: 'long' })})
+              </h4>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setModalVisible(true)}
+              >
+                <i className="bi bi-calendar-plus me-2"></i> Nuevo Servicio
+              </button>
             </div>
-            <div>
+
+            <div className="mb-3">
               <input
                 type="text"
                 className="form-control"
-                placeholder="Buscar servicio..."
+                placeholder="Buscar servicio por origen, destino, ID, etc..."
                 value={busqueda}
                 onChange={handleBuscar}
               />
             </div>
-          </div>
 
-          <div className="table-responsive mt-3">
-            <table className="table table-bordered table-hover">
-              <thead className="table-light">
-                <tr>
-                  {/* <th>ID Servicio</th> */}
-                  <th>Origen → Destino</th>
-                  <th>Terminales</th>
-                  <th>Salida / Llegada</th>
-                  <th>Fecha salida</th>
-                  <th>Fecha llegada</th>
-                  <th>Tipo de Bus</th>
-                  <th>Precios</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cargando ? (
+            <div className="table-responsive">
+              <table className="table table-bordered table-hover">
+                <thead className="table-light">
                   <tr>
-                    <td colSpan="8" className="text-center py-4">
-                      <div className="spinner-border text-primary me-2" role="status" />
-                      Cargando servicios...
-                    </td>
+                    {/* <th>ID Servicio</th> */}
+                    <th>Origen → Destino</th>
+                    <th>Terminales</th>
+                    <th>Salida / Llegada</th>
+                    <th>Fecha salida</th>
+                    <th>Fecha llegada</th>
+                    <th>Tipo de Bus</th>
+                    <th>Precios</th>
+                    <th>Acciones</th>
                   </tr>
-                ) : serviciosFiltrados.length > 0 ? (
-                  serviciosFiltrados.map(servicio => (
-                    <tr key={servicio._id}>
-                      {/* <td><code>{servicio._id}</code></td> */}
-                      <td>{servicio.origin} → {servicio.destination}</td>
-                      <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
-                      <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
-                      <td>
-                        {new Date(servicio.date).toLocaleDateString('es-CL', {
-                          day: '2-digit',
-                          month: 'short',
-                          timeZone: 'UTC'
-                        })}
-                      </td>
-                      <td>
-                        {servicio.arrivalDate ? (() => {
-                          const fechaSalida = new Date(servicio.date);
-                          const fechaLlegada = new Date(servicio.arrivalDate);
-                          const diferencia = fechaLlegada.getTime() - fechaSalida.getTime();
-                          const esError = diferencia < 0;
-
-                          return (
-                            <span className={`${esError ? 'text-danger fw-bold' : fechaLlegada.toDateString() !== fechaSalida.toDateString() ? 'text-warning fw-semibold' : ''}`}>
-                              {fechaLlegada.toLocaleDateString('es-CL', {
-                                day: '2-digit',
-                                month: 'short'
-                              })}
-                              {esError && <span title="La fecha de llegada es anterior a la de salida"> ❌</span>}
-                              {!esError && fechaLlegada.toDateString() !== fechaSalida.toDateString() && (
-                                <span title="Llega en día distinto al de salida"> ⚠️</span>
-                              )}
-                            </span>
-                          );
-                        })() : '—'}
-                      </td>
-                      <td>{servicio.busTypeDescription}</td>
-                      <td>
-                        1° piso: ${servicio.priceFirst ? servicio.priceFirst.toLocaleString() : '—'} <br />
-                        2° piso: ${servicio.priceSecond ? servicio.priceSecond.toLocaleString() : '—'}
-                      </td>
-                      <td>
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => abrirModal(servicio)}>
-                          Ver asientos
-                        </button>
+                </thead>
+                <tbody>
+                  {cargando ? (
+                    <tr>
+                      <td colSpan="9" className="text-center py-4">
+                        <div className="spinner-border text-primary me-2" role="status" />
+                        Cargando servicios...
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="text-center text-muted">
-                      No hay servicios programados para mañana.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  ) : serviciosFiltrados.length > 0 ? (
+                    serviciosFiltrados.map(servicio => (
+                      <tr key={servicio._id}>
+                        {/* <td><code>{servicio._id}</code></td> */}
+                        <td>{servicio.origin} → {servicio.destination}</td>
+                        <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
+                        <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
+                        <td>
+                          {new Date(servicio.date).toLocaleDateString('es-CL', {
+                            day: '2-digit',
+                            month: 'short',
+                            timeZone: 'UTC'
+                          })}
+                        </td>
+                        <td>
+                          {servicio.arrivalDate ? (() => {
+                            const fechaSalida = new Date(servicio.date);
+                            const fechaLlegada = new Date(servicio.arrivalDate);
+                            const diferencia = fechaLlegada.getTime() - fechaSalida.getTime();
+                            const esError = diferencia < 0;
+
+                            return (
+                              <span className={`${esError ? 'text-danger fw-bold' : fechaLlegada.toDateString() !== fechaSalida.toDateString() ? 'text-warning fw-semibold' : ''}`}>
+                                {fechaLlegada.toLocaleDateString('es-CL', {
+                                  day: '2-digit',
+                                  month: 'short'
+                                })}
+                                {esError && <span title="La fecha de llegada es anterior a la de salida"> ❌</span>}
+                                {!esError && fechaLlegada.toDateString() !== fechaSalida.toDateString() && (
+                                  <span title="Llega en día distinto al de salida"> ⚠️</span>
+                                )}
+                              </span>
+                            );
+                          })() : '—'}
+                        </td>
+                        <td>{servicio.busTypeDescription}</td>
+                        <td>
+                          1° piso: ${servicio.priceFirst ? servicio.priceFirst.toLocaleString() : '—'}<br />
+                          2° piso: ${servicio.priceSecond ? servicio.priceSecond.toLocaleString() : '—'}
+                        </td>
+                        <td>
+                          <button className="btn btn-sm btn-outline-primary" onClick={() => abrirModal(servicio)}>
+                            Ver asientos
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="9" className="text-center text-muted">
+                        No hay servicios programados para mañana.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </main>
       </div>
