@@ -31,6 +31,9 @@ const Servicios = () => {
     arrivalDate: '',
     arrivalTime: ''
   });
+  const [rutas, setRutas] = useState([]);
+  const [destinosDisponibles, setDestinosDisponibles] = useState([]);
+
 
   useEffect(() => {
     const fetchServicios = async () => {
@@ -68,6 +71,19 @@ const Servicios = () => {
     };
 
     fetchServicios();
+  }, []);
+
+  useEffect(() => {
+    const fetchRutas = async () => {
+      try {
+        const res = await fetch('https://boletos.dev-wit.com/api/routes/origins');
+        const data = await res.json();
+        setRutas(data);
+      } catch (error) {
+        console.error('Error al obtener rutas:', error);
+      }
+    };
+    fetchRutas();
   }, []);
 
   const abrirModal = (servicio) => {
@@ -261,12 +277,37 @@ const Servicios = () => {
         <div className="row g-2">
           <div className="col-md-6">
             <label className="form-label">Origen</label>
-            <input type="text" name="origin" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="origin"
+              className="form-control"
+              onChange={(e) => {
+                handleNuevoChange(e);
+                const origenSeleccionado = rutas.find(r => r.origen === e.target.value);
+                setDestinosDisponibles(origenSeleccionado?.destinos || []);
+              }}
+            >
+              <option value="">Seleccione Origen</option>
+              {rutas.map((r, i) => (
+                <option key={i} value={r.origen}>{r.origen}</option>
+              ))}
+            </select>
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Destino</label>
-            <input type="text" name="destination" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="destination"
+              className="form-control"
+              onChange={handleNuevoChange}
+              disabled={!destinosDisponibles.length}
+            >
+              <option value="">Seleccione Destino</option>
+              {destinosDisponibles.map((dest, i) => (
+                <option key={i} value={dest}>{dest}</option>
+              ))}
+            </select>
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Fecha de Inicio</label>
             <input type="date" name="startDate" className="form-control" onChange={handleNuevoChange} />
@@ -336,7 +377,8 @@ const Servicios = () => {
           </div>
         </div>
       </ModalBase>
-
+      
+      
       <ModalBase
               visible={modalVisible}
               title={`Asientos de: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
@@ -487,7 +529,7 @@ const Servicios = () => {
                   </div>
                 );
               })()}
-            </ModalBase>
+      </ModalBase>
     </>
   );
 };
