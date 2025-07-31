@@ -112,7 +112,7 @@ const Servicios = () => {
               <table className="table table-bordered table-hover">
                 <thead className="table-light">
                   <tr>
-                    {/* <th>ID Servicio</th> */}
+                    <th>ID Servicio</th>
                     <th>Origen → Destino</th>
                     <th>Terminales</th>
                     <th>Salida / Llegada</th>
@@ -134,7 +134,7 @@ const Servicios = () => {
                   ) : serviciosFiltrados.length > 0 ? (
                     serviciosFiltrados.map(servicio => (
                       <tr key={servicio._id}>
-                        {/* <td><code>{servicio._id}</code></td> */}
+                        <td><code>{servicio._id}</code></td>
                         <td>{servicio.origin} → {servicio.destination}</td>
                         <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
                         <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
@@ -196,19 +196,74 @@ const Servicios = () => {
         visible={modalVisible}
         title={`Asientos de: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
         onClose={() => setModalVisible(false)}
-        size="lg"
+        size="xl"
         footer={null}
       >
         {servicioSeleccionado && (
-          <div className="row">
-            {servicioSeleccionado.seats.map((asiento) => (
-              <div key={asiento._id} className="col-3 mb-2">
-                <div className={`p-2 border rounded text-center ${asiento.paid ? 'bg-danger text-white' : asiento.reserved ? 'bg-warning' : 'bg-light'}`}>
-                  <strong>{asiento.number}</strong><br />
-                  <small>{asiento.paid ? 'Pagado' : asiento.reserved ? 'Reservado' : 'Disponible'}</small>
+          <div>
+            <div className="mb-3">
+              <span className="badge bg-success me-2">Disponible</span>
+              <span className="badge bg-warning text-dark me-2">Reservado</span>
+              <span className="badge bg-danger">Pagado</span>
+            </div>
+
+            {['first', 'second'].map((piso, index) => {
+              const seats = servicioSeleccionado.seats.filter(seat => {
+                const fila = parseInt(seat.number.match(/\d+/)?.[0]);
+                if (servicioSeleccionado.layout.includes('double')) {
+                  return piso === 'first' ? fila <= 4 : fila > 4;
+                }
+                return true;
+              });
+
+              const filas = {};
+              seats.forEach((seat) => {
+                const match = seat.number.match(/^(\d+)([A-D])$/);
+                if (match) {
+                  const [_, row, col] = match;
+                  if (!filas[row]) filas[row] = {};
+                  filas[row][col] = seat;
+                }
+              });
+
+              const ordenColumnas = ['A', 'B', 'C', 'D'];
+
+              return (
+                <div key={piso} className="mb-4">
+                  <h6 className="text-muted">
+                    Piso {index + 1} ({piso === 'first' ? servicioSeleccionado.seatDescriptionFirst : servicioSeleccionado.seatDescriptionSecond})
+                  </h6>
+                  <div className="d-flex flex-column gap-2">
+                    {Object.keys(filas)
+                      .sort((a, b) => parseInt(a) - parseInt(b))
+                      .map((row) => (
+                        <div key={row} className="d-flex gap-2">
+                          {ordenColumnas.map((col) => {
+                            const seat = filas[row][col];
+                            if (!seat) return <div key={col} className="flex-fill" />;
+                            const statusClass = seat.paid
+                              ? 'btn-danger'
+                              : seat.reserved
+                              ? 'btn-warning'
+                              : 'btn-success';
+
+                            return (
+                              <button
+                                key={seat._id}
+                                className={`btn ${statusClass} btn-sm flex-fill`}
+                                disabled
+                                title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
+                              >
+                                {seat.number}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ModalBase>
