@@ -6,9 +6,11 @@ import { showToast } from '@components/Toast/Toast';
 
 const Servicios = () => {
   const [servicios, setServicios] = useState([]);
+  const [serviciosFiltrados, setServiciosFiltrados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
 
   useEffect(() => {
     const fetchServicios = async () => {
@@ -25,23 +27,17 @@ const Servicios = () => {
         if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
         const data = await res.json();
 
-        const mañana = new Date();
-        mañana.setDate(mañana.getDate() + 1);
-        const año = mañana.getFullYear();
-        const mes = mañana.getMonth();
-        const dia = mañana.getDate();
+        const formatoFecha = (fecha) => new Date(fecha).toISOString().split('T')[0];
+        const fechaManana = new Date();
+        fechaManana.setDate(fechaManana.getDate() + 1);
+        const fechaMananaStr = formatoFecha(fechaManana);
 
-        const serviciosManana = data.filter(s => {
-          const fecha = new Date(s.date);
-          return (
-            fecha.getFullYear() === año &&
-            fecha.getMonth() === mes &&
-            fecha.getDate() === dia
-          );
-        });
+        const serviciosManana = data
+          .filter(s => formatoFecha(s.date) === fechaMananaStr)
+          .sort((a, b) => a.departureTime.localeCompare(b.departureTime));
 
-        serviciosManana.sort((a, b) => a.departureTime.localeCompare(b.departureTime));
         setServicios(serviciosManana);
+        setServiciosFiltrados(serviciosManana);
       } catch (error) {
         console.error('Error al cargar servicios:', error);
         showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -67,25 +63,52 @@ const Servicios = () => {
     });
   };
 
+  const handleBuscar = (e) => {
+    const texto = e.target.value.toLowerCase();
+    setBusqueda(texto);
+
+    const filtrados = servicios.filter((s) => {
+      return Object.values(s).some((valor) =>
+        String(valor).toLowerCase().includes(texto)
+      );
+    });
+
+    setServiciosFiltrados(filtrados);
+  };
+
   return (
     <>
       <div className="dashboard-container">
         <Sidebar activeItem="servicios" />
         <main className="main-content">
-          <div className="header">
-            <h1>Servicios para el día siguiente</h1>
-            {servicios.length > 0 && (
-              <p className="text-muted">{formatearFecha(servicios[0].date)}</p>
-            )}
+          <div className="header d-flex justify-content-between align-items-center">
+            <div>
+              <h1>Servicios para el día siguiente</h1>
+              {servicios.length > 0 && (
+                <p className="text-muted">{formatearFecha(servicios[0].date)}</p>
+              )}
+            </div>
+            <div>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Buscar servicio..."
+                value={busqueda}
+                onChange={handleBuscar}
+              />
+            </div>
           </div>
 
-          <div className="table-responsive">
+          <div className="table-responsive mt-3">
             <table className="table table-bordered table-hover">
               <thead className="table-light">
                 <tr>
+                  {/* <th>ID Servicio</th> */}
                   <th>Origen → Destino</th>
                   <th>Terminales</th>
                   <th>Salida / Llegada</th>
+                  <th>Fecha salida</th>
+                  <th>Fecha llegada</th>
                   <th>Tipo de Bus</th>
                   <th>Precios</th>
                   <th>Acciones</th>
@@ -94,17 +117,46 @@ const Servicios = () => {
               <tbody>
                 {cargando ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-4">
+                    <td colSpan="8" className="text-center py-4">
                       <div className="spinner-border text-primary me-2" role="status" />
                       Cargando servicios...
                     </td>
                   </tr>
-                ) : servicios.length > 0 ? (
-                  servicios.map(servicio => (
+                ) : serviciosFiltrados.length > 0 ? (
+                  serviciosFiltrados.map(servicio => (
                     <tr key={servicio._id}>
+                      {/* <td><code>{servicio._id}</code></td> */}
                       <td>{servicio.origin} → {servicio.destination}</td>
                       <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
                       <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
+                      <td>
+                        {new Date(servicio.date).toLocaleDateString('es-CL', {
+                          day: '2-digit',
+                          month: 'short',
+                          timeZone: 'UTC'
+                        })}
+                      </td>
+                      <td>
+                        {servicio.arrivalDate ? (() => {
+                          const fechaSalida = new Date(servicio.date);
+                          const fechaLlegada = new Date(servicio.arrivalDate);
+                          const diferencia = fechaLlegada.getTime() - fechaSalida.getTime();
+                          const esError = diferencia < 0;
+
+                          return (
+                            <span className={`${esError ? 'text-danger fw-bold' : fechaLlegada.toDateString() !== fechaSalida.toDateString() ? 'text-warning fw-semibold' : ''}`}>
+                              {fechaLlegada.toLocaleDateString('es-CL', {
+                                day: '2-digit',
+                                month: 'short'
+                              })}
+                              {esError && <span title="La fecha de llegada es anterior a la de salida"> ❌</span>}
+                              {!esError && fechaLlegada.toDateString() !== fechaSalida.toDateString() && (
+                                <span title="Llega en día distinto al de salida"> ⚠️</span>
+                              )}
+                            </span>
+                          );
+                        })() : '—'}
+                      </td>
                       <td>{servicio.busTypeDescription}</td>
                       <td>
                         1° piso: ${servicio.priceFirst ? servicio.priceFirst.toLocaleString() : '—'} <br />
@@ -119,7 +171,7 @@ const Servicios = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="text-center text-muted">
+                    <td colSpan="8" className="text-center text-muted">
                       No hay servicios programados para mañana.
                     </td>
                   </tr>
