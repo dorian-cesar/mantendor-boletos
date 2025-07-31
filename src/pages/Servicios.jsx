@@ -33,6 +33,7 @@ const Servicios = () => {
   });
   const [rutas, setRutas] = useState([]);
   const [destinosDisponibles, setDestinosDisponibles] = useState([]);
+  const [layouts, setLayouts] = useState([]);
 
 
   useEffect(() => {
@@ -84,6 +85,19 @@ const Servicios = () => {
       }
     };
     fetchRutas();
+  }, []);
+
+  useEffect(() => {
+    const fetchLayouts = async () => {
+      try {
+        const res = await fetch('https://boletos.dev-wit.com/api/layouts/');
+        const data = await res.json();
+        setLayouts(data);
+      } catch (error) {
+        console.error('Error al obtener layouts:', error);
+      }
+    };
+    fetchLayouts();
   }, []);
 
   const abrirModal = (servicio) => {
@@ -333,7 +347,36 @@ const Servicios = () => {
           </div>
           <div className="col-md-6">
             <label className="form-label">Layout del Bus</label>
-            <input type="text" name="busLayout" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="busLayout"
+              className="form-control"
+              onChange={handleNuevoChange}
+            >
+              <option value="">Seleccione layout</option>
+              {layouts.map((layout, i) => (
+                <option key={i} value={layout.name}>
+                  {layout.name}
+                </option>
+              ))}
+            </select>
+            {nuevoServicio.busLayout && (
+              <div className="mt-2 small text-muted">
+                {(() => {
+                  const selected = layouts.find(l => l.name === nuevoServicio.busLayout);
+                  if (!selected) return null;
+
+                  const info = [];
+                  if (selected.pisos) info.push(`Pisos: ${selected.pisos}`);
+                  if (selected.capacidad) info.push(`Capacidad: ${selected.capacidad}`);
+                  if (selected.tipo_Asiento_piso_1) info.push(`1° piso: ${selected.tipo_Asiento_piso_1}`);
+                  if (selected.tipo_Asiento_piso_2) info.push(`2° piso: ${selected.tipo_Asiento_piso_2}`);
+                  if (selected.rows && selected.columns) info.push(`Filas: ${selected.rows}, Columnas: ${selected.columns}`);
+
+                  return info.join(' | ');
+                })()}
+              </div>
+            )}
+
           </div>
           <div className="col-md-6">
             <label className="form-label">Compañía</label>
