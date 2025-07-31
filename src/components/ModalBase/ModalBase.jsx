@@ -62,15 +62,21 @@ const ModalBase = ({ visible, title, onClose, children, footer, size = 'md' }) =
           maxWidth: '720px',
           width: '90%',
           maxHeight: '90vh',
-          overflow: 'hidden',
         }}
       >
         <div className="modal-header border-bottom-0 p-4 pb-2 d-flex justify-content-between align-items-start">
           <h5 className="modal-title fw-semibold fs-5 mb-0">{title}</h5>
           <button type="button" className="btn-close" aria-label="Cerrar" onClick={onClose}></button>
         </div>
-
-        <div className="modal-body px-4 py-3">
+        
+        <div
+          className="modal-body px-4 py-3"
+          style={{ 
+            overflow: 'auto', 
+            flexGrow: 1, 
+            minHeight: 0
+           }}
+        >
           {children}
         </div>
 
