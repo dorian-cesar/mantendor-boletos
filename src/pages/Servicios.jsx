@@ -215,75 +215,105 @@ const Servicios = () => {
           });
 
           const renderPiso = (seats, piso, descripcion) => {
-            const filas = {};
-            const columnas = new Set();
+          const filas = {};
 
-            const resumenPiso = seats.reduce((acc, seat) => {
-              if (seat.paid) {
-                acc.pagados++;
-                acc.ocupados++;
-              } else if (seat.reserved) {
-                acc.reservados++;
-                acc.ocupados++;
-              } else {
-                acc.disponibles++;
-              }
-              return acc;
-            }, { disponibles: 0, reservados: 0, pagados: 0, ocupados: 0 });
+          seats.forEach(seat => {
+            const match = seat.number.match(/^(\d+)([A-Z])$/);
+            if (!match) return;
 
-            seats.forEach(seat => {
-              const match = seat.number.match(/^(\d+)([A-Z])$/);
-              if (!match) return;
-              const [_, row, col] = match;
-              if (!filas[row]) filas[row] = {};
-              filas[row][col] = seat;
-              columnas.add(col);
-            });
+            const [, num, letra] = match;
+            if (!filas[num]) filas[num] = { left: [], right: [] };
 
-            const columnasOrdenadas = [...columnas].sort();
+            if (letra === 'A' || letra === 'B') {
+              filas[num].left.push(seat);
+            } else {
+              filas[num].right.push(seat);
+            }
+          });
 
-            return (
-              <div key={piso} className="mb-4">
-                <h6 className="text-muted">
-                  Piso {piso === 'first' ? '1' : '2'} ({descripcion})
-                </h6>
-                <div className="d-flex flex-column gap-2">
-                  {Object.keys(filas)
-                    .sort((a, b) => parseInt(a) - parseInt(b))
-                    .map((row) => (
-                      <div key={row} className="d-flex gap-2">
-                        {columnasOrdenadas.map((col) => {
-                          const seat = filas[row][col];
-                          if (!seat) return <div key={col} className="flex-fill" />;
-                          const statusClass = seat.paid
-                            ? 'btn-danger'
-                            : seat.reserved
-                            ? 'btn-warning'
-                            : 'btn-success';
+          const resumenPiso = seats.reduce((acc, seat) => {
+            if (seat.paid) {
+              acc.pagados++;
+              acc.ocupados++;
+            } else if (seat.reserved) {
+              acc.reservados++;
+              acc.ocupados++;
+            } else {
+              acc.disponibles++;
+            }
+            return acc;
+          }, { disponibles: 0, reservados: 0, pagados: 0, ocupados: 0 });
 
-                          return (
-                            <button
-                              key={seat._id}
-                              className={`btn ${statusClass} btn-sm flex-fill`}
-                              disabled
-                              title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
-                            >
-                              {seat.number}
-                            </button>
-                          );
-                        })}
+          return (
+            <div key={piso} className="mb-5">
+              <h6 className="text-muted">
+                Piso {piso === 'first' ? '1' : '2'} ({descripcion})
+              </h6>
+              <div className="d-flex flex-column gap-1 border rounded p-3 bg-light align-items-center">             
+                
+                {Object.keys(filas)
+                  .sort((a, b) => parseInt(a) - parseInt(b))
+                  .map(fila => {
+                    const { left, right } = filas[fila];
+                    return (
+                      <div key={fila} className="d-flex gap-3 justify-content-center align-items-center">
+                        <div className="d-flex gap-2">
+                          {left.map(seat => {
+                            const statusClass = seat.paid
+                              ? 'btn-danger'
+                              : seat.reserved
+                              ? 'btn-warning'
+                              : 'btn-success';
+                            return (
+                              <button
+                                key={seat._id}
+                                className={`btn ${statusClass} btn-sm`}
+                                disabled
+                                style={{ width: 48 }}
+                                title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
+                              >
+                                {seat.number}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div style={{ width: '24px' }} />
+
+                        <div className="d-flex gap-2">
+                          {right.map(seat => {
+                            const statusClass = seat.paid
+                              ? 'btn-danger'
+                              : seat.reserved
+                              ? 'btn-warning'
+                              : 'btn-success';
+                            return (
+                              <button
+                                key={seat._id}
+                                className={`btn ${statusClass} btn-sm`}
+                                disabled
+                                style={{ width: 48 }}
+                                title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
+                              >
+                                {seat.number}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                </div>
-                <p className="mt-2 small text-muted">
-                  Disponibles: <strong>{resumenPiso.disponibles}</strong> &nbsp;|&nbsp;
-                  Reservados: <strong>{resumenPiso.reservados}</strong> &nbsp;|&nbsp;
-                  Pagados: <strong>{resumenPiso.pagados}</strong> &nbsp;|&nbsp;
-                  Total ocupados: <strong>{resumenPiso.ocupados}</strong>
-                </p>
+                    );
+                  })}
               </div>
-            );
-          };
+
+              <p className="mt-2 small text-muted">
+                Disponibles: <strong>{resumenPiso.disponibles}</strong> &nbsp;|&nbsp;
+                Reservados: <strong>{resumenPiso.reservados}</strong> &nbsp;|&nbsp;
+                Pagados: <strong>{resumenPiso.pagados}</strong> &nbsp;|&nbsp;
+                Total ocupados: <strong>{resumenPiso.ocupados}</strong>
+              </p>
+            </div>
+          );
+        };
 
           return (
             <div>
