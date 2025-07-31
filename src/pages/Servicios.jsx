@@ -11,6 +11,8 @@ const Servicios = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+  const [todosLosServicios, setTodosLosServicios] = useState([]);
+
 
   useEffect(() => {
     const fetchServicios = async () => {
@@ -36,8 +38,9 @@ const Servicios = () => {
           .filter(s => formatoFecha(s.date) === fechaMananaStr)
           .sort((a, b) => a.departureTime.localeCompare(b.departureTime));
 
-        setServicios(serviciosManana);
-        setServiciosFiltrados(serviciosManana);
+        setTodosLosServicios(data); // <-- todos
+        setServicios(serviciosManana); // <-- visibles por defecto
+        setServiciosFiltrados(serviciosManana); // <-- visibles al inicio
       } catch (error) {
         console.error('Error al cargar servicios:', error);
         showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -67,7 +70,12 @@ const Servicios = () => {
     const texto = e.target.value.toLowerCase();
     setBusqueda(texto);
 
-    const filtrados = servicios.filter((s) => {
+    if (!texto) {
+      setServiciosFiltrados(servicios); // vuelve a los de mañana
+      return;
+    }
+
+    const filtrados = todosLosServicios.filter((s) => {
       return Object.values(s).some((valor) =>
         String(valor).toLowerCase().includes(texto)
       );
@@ -207,63 +215,92 @@ const Servicios = () => {
               <span className="badge bg-danger">Pagado</span>
             </div>
 
-            {['first', 'second'].map((piso, index) => {
-              const seats = servicioSeleccionado.seats.filter(seat => {
+            {(() => {
+              const isDoubleDecker = servicioSeleccionado.layout?.includes('double');
+              const seatsByFloor = { first: [], second: [] };
+
+              servicioSeleccionado.seats.forEach(seat => {
                 const fila = parseInt(seat.number.match(/\d+/)?.[0]);
-                if (servicioSeleccionado.layout.includes('double')) {
-                  return piso === 'first' ? fila <= 4 : fila > 4;
+                if (isDoubleDecker) {
+                  if (fila <= 4) {
+                    seatsByFloor.first.push(seat);
+                  } else {
+                    seatsByFloor.second.push(seat);
+                  }
+                } else {
+                  seatsByFloor.first.push(seat); // Todo en un piso
                 }
-                return true;
               });
 
-              const filas = {};
-              seats.forEach((seat) => {
-                const match = seat.number.match(/^(\d+)([A-D])$/);
-                if (match) {
+              const renderPiso = (seats, piso, descripcion) => {
+                // Agrupar por fila
+                const filas = {};
+                const columnas = new Set();
+
+                seats.forEach(seat => {
+                  const match = seat.number.match(/^(\d+)([A-Z])$/);
+                  if (!match) return;
                   const [_, row, col] = match;
                   if (!filas[row]) filas[row] = {};
                   filas[row][col] = seat;
-                }
-              });
+                  columnas.add(col);
+                });
 
-              const ordenColumnas = ['A', 'B', 'C', 'D'];
+                const columnasOrdenadas = [...columnas].sort();
+
+                return (
+                  <div key={piso} className="mb-4">
+                    <h6 className="text-muted">
+                      Piso {piso === 'first' ? '1' : '2'} ({descripcion})
+                    </h6>
+                    <div className="d-flex flex-column gap-2">
+                      {Object.keys(filas)
+                        .sort((a, b) => parseInt(a) - parseInt(b))
+                        .map((row) => (
+                          <div key={row} className="d-flex gap-2">
+                            {columnasOrdenadas.map((col) => {
+                              const seat = filas[row][col];
+                              if (!seat) return <div key={col} className="flex-fill" />;
+                              const statusClass = seat.paid
+                                ? 'btn-danger'
+                                : seat.reserved
+                                ? 'btn-warning'
+                                : 'btn-success';
+
+                              return (
+                                <button
+                                  key={seat._id}
+                                  className={`btn ${statusClass} btn-sm flex-fill`}
+                                  disabled
+                                  title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
+                                >
+                                  {seat.number}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                );
+              };
 
               return (
-                <div key={piso} className="mb-4">
-                  <h6 className="text-muted">
-                    Piso {index + 1} ({piso === 'first' ? servicioSeleccionado.seatDescriptionFirst : servicioSeleccionado.seatDescriptionSecond})
-                  </h6>
-                  <div className="d-flex flex-column gap-2">
-                    {Object.keys(filas)
-                      .sort((a, b) => parseInt(a) - parseInt(b))
-                      .map((row) => (
-                        <div key={row} className="d-flex gap-2">
-                          {ordenColumnas.map((col) => {
-                            const seat = filas[row][col];
-                            if (!seat) return <div key={col} className="flex-fill" />;
-                            const statusClass = seat.paid
-                              ? 'btn-danger'
-                              : seat.reserved
-                              ? 'btn-warning'
-                              : 'btn-success';
-
-                            return (
-                              <button
-                                key={seat._id}
-                                className={`btn ${statusClass} btn-sm flex-fill`}
-                                disabled
-                                title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
-                              >
-                                {seat.number}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ))}
-                  </div>
-                </div>
+                <>
+                  {renderPiso(
+                    seatsByFloor.first,
+                    'first',
+                    servicioSeleccionado.seatDescriptionFirst || 'Piso inferior'
+                  )}
+                  {isDoubleDecker &&
+                    renderPiso(
+                      seatsByFloor.second,
+                      'second',
+                      servicioSeleccionado.seatDescriptionSecond || 'Piso superior'
+                    )}
+                </>
               );
-            })}
+            })()}
           </div>
         )}
       </ModalBase>
