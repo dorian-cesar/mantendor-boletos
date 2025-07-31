@@ -9,9 +9,28 @@ const Servicios = () => {
   const [serviciosFiltrados, setServiciosFiltrados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalNuevoVisible, setModalNuevoVisible] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
   const [busqueda, setBusqueda] = useState('');
   const [todosLosServicios, setTodosLosServicios] = useState([]);
+  const [nuevoServicio, setNuevoServicio] = useState({
+    origin: '',
+    destination: '',
+    startDate: '',
+    days: [],
+    time: '',
+    busLayout: '',
+    company: '',
+    busTypeDescription: '',
+    seatDescriptionFirst: '',
+    seatDescriptionSecond: '',
+    priceFirst: '',
+    priceSecond: '',
+    terminalOrigin: '',
+    terminalDestination: '',
+    arrivalDate: '',
+    arrivalTime: ''
+  });
 
   useEffect(() => {
     const fetchServicios = async () => {
@@ -74,6 +93,45 @@ const Servicios = () => {
     setServiciosFiltrados(filtrados);
   };
 
+  const handleNuevoChange = (e) => {
+    const { name, value } = e.target;
+    setNuevoServicio(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleDaysChange = (day) => {
+    setNuevoServicio(prev => {
+      const days = prev.days.includes(day)
+        ? prev.days.filter(d => d !== day)
+        : [...prev.days, day];
+      return { ...prev, days };
+    });
+  };
+
+  const crearNuevoServicio = async () => {
+    try {
+      const token =
+        sessionStorage.getItem("token") ||
+        JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
+
+      const res = await fetch('https://boletos.dev-wit.com/api/templates/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(nuevoServicio)
+      });
+
+      if (!res.ok) throw new Error('Error al crear servicio');
+
+      showToast('Éxito', 'Servicio creado correctamente.');
+      setModalNuevoVisible(false);
+    } catch (error) {
+      console.error(error);
+      showToast('Error', 'No se pudo crear el servicio.', true);
+    }
+  };
+
   return (
     <>
       <div className="dashboard-container">
@@ -90,7 +148,7 @@ const Servicios = () => {
               </h4>
               <button
                 className="btn btn-primary btn-sm"
-                onClick={() => setModalVisible(true)}
+                onClick={() => setModalNuevoVisible(true)}
               >
                 <i className="bi bi-calendar-plus me-2"></i> Nuevo Servicio
               </button>
@@ -191,156 +249,245 @@ const Servicios = () => {
       </div>
 
       <ModalBase
-        visible={modalVisible}
-        title={`Asientos de: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
-        onClose={() => setModalVisible(false)}
-        size="xl"
-        footer={null}
+        visible={modalNuevoVisible}
+        title="Nuevo Servicio"
+        onClose={() => setModalNuevoVisible(false)}
+        footer={
+          <button className="btn btn-primary" onClick={crearNuevoServicio}>
+            Guardar
+          </button>
+        }
       >
-        {servicioSeleccionado && (() => {
-          const isDoubleDecker = servicioSeleccionado.layout?.includes('double');
-          const seatsByFloor = { first: [], second: [] };
-
-          servicioSeleccionado.seats.forEach(seat => {
-            const fila = parseInt(seat.number.match(/\d+/)?.[0]);
-            if (isDoubleDecker) {
-              if (fila <= 4) {
-                seatsByFloor.first.push(seat);
-              } else {
-                seatsByFloor.second.push(seat);
-              }
-            } else {
-              seatsByFloor.first.push(seat);
-            }
-          });
-
-          const renderPiso = (seats, piso, descripcion) => {
-          const filas = {};
-
-          seats.forEach(seat => {
-            const match = seat.number.match(/^(\d+)([A-Z])$/);
-            if (!match) return;
-
-            const [, num, letra] = match;
-            if (!filas[num]) filas[num] = { left: [], right: [] };
-
-            if (letra === 'A' || letra === 'B') {
-              filas[num].left.push(seat);
-            } else {
-              filas[num].right.push(seat);
-            }
-          });
-
-          const resumenPiso = seats.reduce((acc, seat) => {
-            if (seat.paid) {
-              acc.pagados++;
-              acc.ocupados++;
-            } else if (seat.reserved) {
-              acc.reservados++;
-              acc.ocupados++;
-            } else {
-              acc.disponibles++;
-            }
-            return acc;
-          }, { disponibles: 0, reservados: 0, pagados: 0, ocupados: 0 });
-
-          return (
-            <div key={piso} className="mb-5">
-              <h6 className="text-muted">
-                Piso {piso === 'first' ? '1' : '2'} ({descripcion})
-              </h6>
-              <div className="d-flex flex-column gap-1 border rounded p-3 bg-light align-items-center">             
-                
-                {Object.keys(filas)
-                  .sort((a, b) => parseInt(a) - parseInt(b))
-                  .map(fila => {
-                    const { left, right } = filas[fila];
-                    return (
-                      <div key={fila} className="d-flex gap-3 justify-content-center align-items-center">
-                        <div className="d-flex gap-2">
-                          {left.map(seat => {
-                            const statusClass = seat.paid
-                              ? 'btn-danger'
-                              : seat.reserved
-                              ? 'btn-warning'
-                              : 'btn-success';
-                            return (
-                              <button
-                                key={seat._id}
-                                className={`btn ${statusClass} btn-sm`}
-                                disabled
-                                style={{ width: 48 }}
-                                title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
-                              >
-                                {seat.number}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <div style={{ width: '24px' }} />
-
-                        <div className="d-flex gap-2">
-                          {right.map(seat => {
-                            const statusClass = seat.paid
-                              ? 'btn-danger'
-                              : seat.reserved
-                              ? 'btn-warning'
-                              : 'btn-success';
-                            return (
-                              <button
-                                key={seat._id}
-                                className={`btn ${statusClass} btn-sm`}
-                                disabled
-                                style={{ width: 48 }}
-                                title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
-                              >
-                                {seat.number}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-
-              <p className="mt-2 small text-muted">
-                Disponibles: <strong>{resumenPiso.disponibles}</strong> &nbsp;|&nbsp;
-                Reservados: <strong>{resumenPiso.reservados}</strong> &nbsp;|&nbsp;
-                Pagados: <strong>{resumenPiso.pagados}</strong> &nbsp;|&nbsp;
-                Total ocupados: <strong>{resumenPiso.ocupados}</strong>
-              </p>
+        <div className="row g-2">
+          <div className="col-md-6">
+            <label className="form-label">Origen</label>
+            <input type="text" name="origin" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Destino</label>
+            <input type="text" name="destination" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Fecha de Inicio</label>
+            <input type="date" name="startDate" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Hora de Salida</label>
+            <input type="time" name="time" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Días</label>
+            <div className="d-flex flex-wrap gap-1">
+              {[1,2,3,4,5,6,7].map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`btn btn-sm ${nuevoServicio.days.includes(d) ? 'btn-primary' : 'btn-outline-primary'}`}
+                  onClick={() => handleDaysChange(d)}
+                >
+                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'][d-1]}
+                </button>
+              ))}
             </div>
-          );
-        };
-
-          return (
-            <div>
-              <div className="mb-3">
-                <span className="badge bg-success me-2">Disponible</span>
-                <span className="badge bg-warning text-dark me-2">Reservado</span>
-                <span className="badge bg-danger">Pagado</span>
-              </div>
-              {renderPiso(
-                seatsByFloor.first,
-                'first',
-                servicioSeleccionado.seatDescriptionFirst || 'Piso inferior'
-              )}
-              {isDoubleDecker && renderPiso(
-                seatsByFloor.second,
-                'second',
-                servicioSeleccionado.seatDescriptionSecond || 'Piso superior'
-              )}
-              <div className="mt-3">
-                <strong>
-                  {servicioSeleccionado.seats.filter(s => !s.paid && !s.reserved).length} asientos disponibles
-                </strong>
-              </div>
-            </div>
-          );
-        })()}
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Layout del Bus</label>
+            <input type="text" name="busLayout" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Compañía</label>
+            <input type="text" name="company" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Tipo de Bus</label>
+            <input type="text" name="busTypeDescription" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Descripción 1° Piso</label>
+            <input type="text" name="seatDescriptionFirst" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Descripción 2° Piso</label>
+            <input type="text" name="seatDescriptionSecond" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Precio 1° Piso</label>
+            <input type="number" name="priceFirst" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Precio 2° Piso</label>
+            <input type="number" name="priceSecond" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Terminal Origen</label>
+            <input type="text" name="terminalOrigin" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Terminal Destino</label>
+            <input type="text" name="terminalDestination" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Fecha Llegada</label>
+            <input type="date" name="arrivalDate" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Hora Llegada</label>
+            <input type="time" name="arrivalTime" className="form-control" onChange={handleNuevoChange} />
+          </div>
+        </div>
       </ModalBase>
+
+      <ModalBase
+              visible={modalVisible}
+              title={`Asientos de: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
+              onClose={() => setModalVisible(false)}
+              size="xl"
+              footer={null}
+            >
+              {servicioSeleccionado && (() => {
+                const isDoubleDecker = servicioSeleccionado.layout?.includes('double');
+                const seatsByFloor = { first: [], second: [] };
+      
+                servicioSeleccionado.seats.forEach(seat => {
+                  const fila = parseInt(seat.number.match(/\d+/)?.[0]);
+                  if (isDoubleDecker) {
+                    if (fila <= 4) {
+                      seatsByFloor.first.push(seat);
+                    } else {
+                      seatsByFloor.second.push(seat);
+                    }
+                  } else {
+                    seatsByFloor.first.push(seat);
+                  }
+                });
+      
+                const renderPiso = (seats, piso, descripcion) => {
+                const filas = {};
+      
+                seats.forEach(seat => {
+                  const match = seat.number.match(/^(\d+)([A-Z])$/);
+                  if (!match) return;
+      
+                  const [, num, letra] = match;
+                  if (!filas[num]) filas[num] = { left: [], right: [] };
+      
+                  if (letra === 'A' || letra === 'B') {
+                    filas[num].left.push(seat);
+                  } else {
+                    filas[num].right.push(seat);
+                  }
+                });
+      
+                const resumenPiso = seats.reduce((acc, seat) => {
+                  if (seat.paid) {
+                    acc.pagados++;
+                    acc.ocupados++;
+                  } else if (seat.reserved) {
+                    acc.reservados++;
+                    acc.ocupados++;
+                  } else {
+                    acc.disponibles++;
+                  }
+                  return acc;
+                }, { disponibles: 0, reservados: 0, pagados: 0, ocupados: 0 });
+      
+                return (
+                  <div key={piso} className="mb-5">
+                    <h6 className="text-muted">
+                      Piso {piso === 'first' ? '1' : '2'} ({descripcion})
+                    </h6>
+                    <div className="d-flex flex-column gap-1 border rounded p-3 bg-light align-items-center">             
+                      
+                      {Object.keys(filas)
+                        .sort((a, b) => parseInt(a) - parseInt(b))
+                        .map(fila => {
+                          const { left, right } = filas[fila];
+                          return (
+                            <div key={fila} className="d-flex gap-3 justify-content-center align-items-center">
+                              <div className="d-flex gap-2">
+                                {left.map(seat => {
+                                  const statusClass = seat.paid
+                                    ? 'btn-danger'
+                                    : seat.reserved
+                                    ? 'btn-warning'
+                                    : 'btn-success';
+                                  return (
+                                    <button
+                                      key={seat._id}
+                                      className={`btn ${statusClass} btn-sm`}
+                                      disabled
+                                      style={{ width: 48 }}
+                                      title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
+                                    >
+                                      {seat.number}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+      
+                              <div style={{ width: '24px' }} />
+      
+                              <div className="d-flex gap-2">
+                                {right.map(seat => {
+                                  const statusClass = seat.paid
+                                    ? 'btn-danger'
+                                    : seat.reserved
+                                    ? 'btn-warning'
+                                    : 'btn-success';
+                                  return (
+                                    <button
+                                      key={seat._id}
+                                      className={`btn ${statusClass} btn-sm`}
+                                      disabled
+                                      style={{ width: 48 }}
+                                      title={`${seat.number} - ${seat.paid ? 'Pagado' : seat.reserved ? 'Reservado' : 'Disponible'}`}
+                                    >
+                                      {seat.number}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+      
+                    <p className="mt-2 small text-muted">
+                      Disponibles: <strong>{resumenPiso.disponibles}</strong> &nbsp;|&nbsp;
+                      Reservados: <strong>{resumenPiso.reservados}</strong> &nbsp;|&nbsp;
+                      Pagados: <strong>{resumenPiso.pagados}</strong> &nbsp;|&nbsp;
+                      Total ocupados: <strong>{resumenPiso.ocupados}</strong>
+                    </p>
+                  </div>
+                );
+              };
+      
+                return (
+                  <div>
+                    <div className="mb-3">
+                      <span className="badge bg-success me-2">Disponible</span>
+                      <span className="badge bg-warning text-dark me-2">Reservado</span>
+                      <span className="badge bg-danger">Pagado</span>
+                    </div>
+                    {renderPiso(
+                      seatsByFloor.first,
+                      'first',
+                      servicioSeleccionado.seatDescriptionFirst || 'Piso inferior'
+                    )}
+                    {isDoubleDecker && renderPiso(
+                      seatsByFloor.second,
+                      'second',
+                      servicioSeleccionado.seatDescriptionSecond || 'Piso superior'
+                    )}
+                    <div className="mt-3">
+                      <strong>
+                        {servicioSeleccionado.seats.filter(s => !s.paid && !s.reserved).length} asientos disponibles
+                      </strong>
+                    </div>
+                  </div>
+                );
+              })()}
+            </ModalBase>
     </>
   );
 };
