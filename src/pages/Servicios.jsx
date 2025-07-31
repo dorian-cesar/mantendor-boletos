@@ -6,29 +6,47 @@ import { showToast } from '@components/Toast/Toast';
 
 const Servicios = () => {
   const [servicios, setServicios] = useState([]);
+  const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
 
   useEffect(() => {
     const fetchServicios = async () => {
       try {
+        setCargando(true);
         const token =
           sessionStorage.getItem("token") ||
           JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
 
         const res = await fetch('https://boletos.dev-wit.com/api/services/all', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
-
         const data = await res.json();
-        setServicios(data);
+
+        const mañana = new Date();
+        mañana.setDate(mañana.getDate() + 1);
+        const año = mañana.getFullYear();
+        const mes = mañana.getMonth();
+        const dia = mañana.getDate();
+
+        const serviciosManana = data.filter(s => {
+          const fecha = new Date(s.date);
+          return (
+            fecha.getFullYear() === año &&
+            fecha.getMonth() === mes &&
+            fecha.getDate() === dia
+          );
+        });
+
+        serviciosManana.sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+        setServicios(serviciosManana);
       } catch (error) {
         console.error('Error al cargar servicios:', error);
         showToast('Error', 'No se pudieron cargar los servicios.', true);
+      } finally {
+        setCargando(false);
       }
     };
 
@@ -43,10 +61,9 @@ const Servicios = () => {
   const formatearFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
     return fecha.toLocaleDateString('es-CL', {
-      weekday: 'short',
+      weekday: 'long',
       day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+      month: 'long'
     });
   };
 
@@ -56,31 +73,66 @@ const Servicios = () => {
         <Sidebar activeItem="servicios" />
         <main className="main-content">
           <div className="header">
-            <h1>Gestión de Servicios</h1>
-            <p className="text-muted">Visualiza los servicios de buses en una grilla tipo calendario.</p>
+            <h1>Servicios para el día siguiente</h1>
+            {servicios.length > 0 && (
+              <p className="text-muted">{formatearFecha(servicios[0].date)}</p>
+            )}
           </div>
 
-          <div className="grid">
-            {servicios.map(servicio => (
-              <div
-                key={servicio._id}
-                className="card-tile"
-                onClick={() => abrirModal(servicio)}
-              >
-                <h5>{servicio.origin} → {servicio.destination}</h5>
-                <p><strong>Fecha:</strong> {formatearFecha(servicio.date)}</p>
-                <p><strong>Salida:</strong> {servicio.departureTime} — <strong>Llegada:</strong> {servicio.arrivalTime}</p>
-                <p><strong>Tipo:</strong> {servicio.busTypeDescription}</p>
-                <p><strong>Precio 1er piso:</strong> ${servicio.priceFirst.toLocaleString()}</p>
-              </div>
-            ))}
+          <div className="table-responsive">
+            <table className="table table-bordered table-hover">
+              <thead className="table-light">
+                <tr>
+                  <th>Origen → Destino</th>
+                  <th>Terminales</th>
+                  <th>Salida / Llegada</th>
+                  <th>Tipo de Bus</th>
+                  <th>Precios</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cargando ? (
+                  <tr>
+                    <td colSpan="6" className="text-center py-4">
+                      <div className="spinner-border text-primary me-2" role="status" />
+                      Cargando servicios...
+                    </td>
+                  </tr>
+                ) : servicios.length > 0 ? (
+                  servicios.map(servicio => (
+                    <tr key={servicio._id}>
+                      <td>{servicio.origin} → {servicio.destination}</td>
+                      <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
+                      <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
+                      <td>{servicio.busTypeDescription}</td>
+                      <td>
+                        1° piso: ${servicio.priceFirst ? servicio.priceFirst.toLocaleString() : '—'} <br />
+                        2° piso: ${servicio.priceSecond ? servicio.priceSecond.toLocaleString() : '—'}
+                      </td>
+                      <td>
+                        <button className="btn btn-sm btn-outline-primary" onClick={() => abrirModal(servicio)}>
+                          Ver asientos
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="text-center text-muted">
+                      No hay servicios programados para mañana.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </main>
       </div>
 
       <ModalBase
         visible={modalVisible}
-        title={`Asientos de servicio: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
+        title={`Asientos de: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
         onClose={() => setModalVisible(false)}
         size="lg"
         footer={null}
