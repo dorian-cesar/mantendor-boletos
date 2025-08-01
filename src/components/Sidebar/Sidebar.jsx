@@ -32,6 +32,9 @@ const Sidebar = ({ activeItem }) => {
       <Link to="/servicios" className={activeItem === 'servicios' ? 'active' : ''}>
         <CalendarCheck className="me-2" /> Servicios
       </Link>
+      <Link to="/buses" className={activeItem === 'buses' ? 'active' : ''}>
+          <BusFront className="me-2" /> Buses
+      </Link>
      <Link to="/ciudades" className={activeItem === 'ciudades' ? 'active' : ''}>
         <Landmark className="me-2" /> Ciudades
       </Link>
@@ -41,6 +44,7 @@ const Sidebar = ({ activeItem }) => {
       <Link to="/companias" className={activeItem === 'companias' ? 'active' : ''}>
           <Factory className="me-2" /> Compañias
       </Link>
+      
 
       <a href="#" onClick={handleLogout} className="mt-auto">
         <i className="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
