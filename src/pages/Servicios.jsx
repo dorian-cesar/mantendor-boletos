@@ -38,6 +38,7 @@ const Servicios = () => {
   const [ciudades, setCiudades] = useState([]);
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [servicioEditando, setServicioEditando] = useState(null);
+  const [editandoServicioId, setEditandoServicioId] = useState(null);
 
   const validarCampos = () => {
     const camposRequeridos = [
@@ -98,45 +99,8 @@ const Servicios = () => {
     seatDescriptionSecond: "Descripción 2° Piso",
     priceFirst: "Precio 1° Piso",
     priceSecond: "Precio 2° Piso",
-  };  
-
-  useEffect(() => {
-    const fetchServicios = async () => {
-      try {
-        setCargando(true);
-        const token =
-          sessionStorage.getItem("token") ||
-          JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
-
-        const res = await fetch('https://boletos.dev-wit.com/api/services/all', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
-        const data = await res.json();
-
-        const formatoFecha = (fecha) => new Date(fecha).toISOString().split('T')[0];
-        const fechaManana = new Date();
-        fechaManana.setDate(fechaManana.getDate() + 1);
-        const fechaMananaStr = formatoFecha(fechaManana);
-
-        const serviciosManana = data
-          .filter(s => formatoFecha(s.date) === fechaMananaStr)
-          .sort((a, b) => a.departureTime.localeCompare(b.departureTime));
-
-        setTodosLosServicios(data);
-        setServicios(serviciosManana);
-        setServiciosFiltrados(serviciosManana);
-      } catch (error) {
-        console.error('Error al cargar servicios:', error);
-        showToast('Error', 'No se pudieron cargar los servicios.', true);
-      } finally {
-        setCargando(false);
-      }
-    };
-
-    fetchServicios();
-  }, []);  
+  };
+  
 
   useEffect(() => {
     const fetchLayouts = async () => {
@@ -165,10 +129,61 @@ const Servicios = () => {
     obtenerCiudades();
   }, []);
 
+  useEffect(() => {
+    fetchServicios();
+  }, []);
+
+  const fetchServicios = async () => {
+    try {
+      setCargando(true);
+      const token =
+        sessionStorage.getItem("token") ||
+        JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
+
+      const res = await fetch('https://boletos.dev-wit.com/api/services/all', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
+      const data = await res.json();
+
+      const formatoFecha = (fecha) => new Date(fecha).toISOString().split('T')[0];
+      const fechaManana = new Date();
+      fechaManana.setDate(fechaManana.getDate() + 1);
+      const fechaMananaStr = formatoFecha(fechaManana);
+
+      const serviciosManana = data
+        .filter(s => formatoFecha(s.date) === fechaMananaStr)
+        .sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+
+      setTodosLosServicios(data);
+      setServicios(serviciosManana);
+      setServiciosFiltrados(serviciosManana);
+    } catch (error) {
+      console.error('Error al cargar servicios:', error);
+      showToast('Error', 'No se pudieron cargar los servicios.', true);
+    } finally {
+      setCargando(false);
+    }
+  };
 
   const abrirModal = (servicio) => {
     setServicioSeleccionado(servicio);
     setModalVisible(true);
+  };
+
+  const abrirModalEditar = (servicio) => {
+    setModoEdicion(true);
+    setServicioSeleccionado(servicio);
+    setNuevoServicio({
+      ...servicio,
+      startDate: servicio.date?.slice(0, 10),
+      arrivalDate: servicio.arrivalDate?.slice(0, 10),
+      time: servicio.departureTime,
+      arrivalTime: servicio.arrivalTime,
+      days: servicio.days || []
+    });
+    setModalNuevoVisible(true);
   };
 
   const handleBuscar = (e) => {
@@ -191,7 +206,10 @@ const Servicios = () => {
 
   const handleNuevoChange = (e) => {
     const { name, value } = e.target;
-    setNuevoServicio(prev => ({ ...prev, [name]: value }));
+    setNuevoServicio(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleDaysChange = (day) => {
@@ -203,22 +221,35 @@ const Servicios = () => {
     });
   };
 
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setServicioEditando((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const crearNuevoServicio = async () => {
     if (!validarCampos()) return;
-
     try {
       const token =
         sessionStorage.getItem("token") ||
         JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
-      
+
       const payload = {
         ...nuevoServicio,
         priceFirst: nuevoServicio.priceFirst ? Number(nuevoServicio.priceFirst) : null,
         priceSecond: nuevoServicio.priceSecond ? Number(nuevoServicio.priceSecond) : null
       };
 
-      const res = await fetch('https://boletos.dev-wit.com/api/templates/create', {
-        method: 'POST',
+      const endpoint = editandoServicioId
+        ? `https://boletos.dev-wit.com/api/templates/update/${editandoServicioId}`
+        : `https://boletos.dev-wit.com/api/templates/create`;
+
+      const metodo = editandoServicioId ? 'PUT' : 'POST';
+
+      const res = await fetch(endpoint, {
+        method: metodo,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -226,13 +257,17 @@ const Servicios = () => {
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error('Error al crear servicio');
+      if (!res.ok) throw new Error('Error al guardar servicio');
 
-      showToast('Éxito', 'Servicio creado correctamente.');
+      showToast('Éxito', editandoServicioId ? 'Servicio actualizado' : 'Servicio creado');
       setModalNuevoVisible(false);
+      setEditandoServicioId(null);  
+
+      await fetchServicios();  
+        
     } catch (error) {
       console.error(error);
-      showToast('Error', 'No se pudo crear el servicio.', true);
+      showToast('Error', 'No se pudo guardar el servicio.', true);
     }
   };
 
@@ -242,32 +277,41 @@ const Servicios = () => {
   };
 
   const actualizarServicio = async () => {
+    if (!validarCampos()) return;
+
     try {
       const token =
         sessionStorage.getItem("token") ||
-        JSON.parse(localStorage.getItem("recordarSession") || "{}").token;
+        JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
 
-      const res = await fetch(`https://boletos.dev-wit.com/api/templates/${servicioEditando._id}`, {
-        method: "PUT",
+      const payload = {
+        ...nuevoServicio,
+        priceFirst: nuevoServicio.priceFirst ? Number(nuevoServicio.priceFirst) : null,
+        priceSecond: nuevoServicio.priceSecond ? Number(nuevoServicio.priceSecond) : null,
+        date: nuevoServicio.startDate,
+        departureTime: nuevoServicio.time,
+        arrivalDate: nuevoServicio.arrivalDate,
+        arrivalTime: nuevoServicio.arrivalTime
+      };
+
+      const res = await fetch(`https://boletos.dev-wit.com/api/templates/${servicioSeleccionado._id}`, {
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(servicioEditando),
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Error al actualizar servicio");
+      if (!res.ok) throw new Error('Error al actualizar servicio');
 
-      showToast("Éxito", "Servicio actualizado correctamente.");
-      setModalEditarVisible(false);
-
-      // Opcional: recargar lista
-      setServicios((prev) =>
-        prev.map((s) => (s._id === servicioEditando._id ? servicioEditando : s))
-      );
+      showToast('Éxito', 'Servicio actualizado correctamente.');
+      setModalNuevoVisible(false);
+      setModoEdicion(false);
+      setNuevoServicio(valoresIniciales); // Reset form       
     } catch (error) {
       console.error(error);
-      showToast("Error", "No se pudo actualizar el servicio.", true);
+      showToast('Error', 'No se pudo actualizar el servicio.', true);
     }
   };
 
@@ -442,16 +486,18 @@ const Servicios = () => {
                           2° piso: ${servicio.priceSecond ? servicio.priceSecond.toLocaleString() : '—'}
                         </td>
 
-                        <td className="d-flex gap-1 flex-wrap">
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => abrirModal(servicio)}>
-                            <i className="bi bi-grid-3x3-gap-fill me-1" /> Ver asientos
-                          </button>
-                          <button className="btn btn-sm btn-outline-warning" onClick={() => editarServicio(servicio)}>
-                            <i className="bi bi-pencil-square me-1" /> Editar
-                          </button>
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => eliminarServicio(servicio._id)}>
-                            <i className="bi bi-trash me-1" /> Eliminar
-                          </button>
+                        <td>
+                          <div className="d-flex flex-column gap-1">
+                            <button className="btn btn-sm btn-outline-primary" onClick={() => abrirModal(servicio)}>
+                              Ver asientos
+                            </button>
+                            <button className="btn btn-sm btn-outline-secondary" onClick={() => abrirModalEdicion(servicio)}>
+                              Editar
+                            </button>
+                            <button className="btn btn-sm btn-outline-danger" onClick={() => eliminarServicio(servicio._id)}>
+                              Eliminar
+                            </button>
+                          </div>
                         </td>
 
                       </tr>
@@ -486,12 +532,8 @@ const Servicios = () => {
             <select
               name="origin"
               className="form-control"
-              onChange={(e) => {
-                handleNuevoChange(e);
-                // Si mantienes lógica de rutas, deberás revisar cómo aplicar este cambio
-                const origenSeleccionado = rutas.find(r => r.origen === e.target.value);
-                setDestinosDisponibles(origenSeleccionado?.destinos || []);
-              }}
+              value={nuevoServicio.origin}
+              onChange={handleNuevoChange}
             >
               <option value="">Seleccione Origen</option>
               {ciudades.map((ciudad) => (
@@ -508,6 +550,7 @@ const Servicios = () => {
             <select
               name="destination"
               className="form-control"
+              value={nuevoServicio.destination}
               onChange={handleNuevoChange}
             >
               <option value="">Seleccione Destino</option>
@@ -718,7 +761,11 @@ const Servicios = () => {
       <ModalBase
         visible={modalEditarVisible}
         title="Editar Servicio"
-        onClose={() => setModalEditarVisible(false)}
+        onClose={() => {
+          setModalNuevoVisible(false);
+          setModoEdicion(false);
+          setNuevoServicio(valoresIniciales);
+        }}
         footer={
           <button
             className="btn btn-primary"

@@ -45,7 +45,7 @@ const Ciudades = () => {
               <table className="table table-bordered table-hover align-middle">
                 <thead className="table-light">
                   <tr>
-                    <th>#</th>
+                    <th>ID</th>
                     <th>Nombre</th>
                     <th>Región</th>
                     <th>País</th>
@@ -54,7 +54,7 @@ const Ciudades = () => {
                 <tbody>
                   {ciudades.map((ciudad, i) => (
                     <tr key={ciudad._id}>
-                      <td>{i + 1}</td>
+                      <td>{ciudad._id}</td>
                       <td>{ciudad.name}</td>
                       <td>{ciudad.region}</td>
                       <td>{ciudad.country}</td>
