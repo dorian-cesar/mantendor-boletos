@@ -382,6 +382,34 @@ const Servicios = () => {
           </div>
 
           <div className="col-md-6">
+            <label className="form-label">Terminal Origen</label>
+            <select
+              name="terminalOrigin"
+              className="form-control"
+              onChange={handleNuevoChange}
+            >
+              <option value="">Seleccione Terminal</option>
+              {terminales.map((terminal, i) => (
+                <option key={i} value={terminal}>{terminal}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Terminal Destino</label>
+            <select
+              name="terminalDestination"
+              className="form-control"
+              onChange={handleNuevoChange}
+            >
+              <option value="">Seleccione Terminal</option>
+              {terminales.map((terminal, i) => (
+                <option key={i} value={terminal}>{terminal}</option>
+              ))}
+            </select>
+          </div> 
+
+          <div className="col-md-6">
             <label className="form-label">Fecha de Salida</label>
             <input type="date" name="startDate" className="form-control" onChange={handleNuevoChange} />
           </div>
@@ -544,34 +572,7 @@ const Servicios = () => {
               placeholder="Ej: 14000"
             />
           </div>
-
-          <div className="col-md-6">
-            <label className="form-label">Terminal Origen</label>
-            <select
-              name="terminalOrigin"
-              className="form-control"
-              onChange={handleNuevoChange}
-            >
-              <option value="">Seleccione Terminal</option>
-              {terminales.map((terminal, i) => (
-                <option key={i} value={terminal}>{terminal}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-md-6">
-            <label className="form-label">Terminal Destino</label>
-            <select
-              name="terminalDestination"
-              className="form-control"
-              onChange={handleNuevoChange}
-            >
-              <option value="">Seleccione Terminal</option>
-              {terminales.map((terminal, i) => (
-                <option key={i} value={terminal}>{terminal}</option>
-              ))}
-            </select>
-          </div>          
+                   
         </div>
       </ModalBase>      
       
