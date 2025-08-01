@@ -30,14 +30,73 @@ const Servicios = () => {
     terminalDestination: '',
     arrivalDate: '',
     arrivalTime: ''
-  });
-  const [rutas, setRutas] = useState([]);
-  const [destinosDisponibles, setDestinosDisponibles] = useState([]);
+  });  
+  
   const [layouts, setLayouts] = useState([]);
   const layoutSeleccionado = layouts.find(l => l.name === nuevoServicio.busLayout);
   const tieneDosPisos = layoutSeleccionado?.pisos === 2;
+  const [ciudades, setCiudades] = useState([]);
 
+  const validarCampos = () => {
+    const camposRequeridos = [
+      'origin', 'destination',
+      'terminalOrigin', 'terminalDestination',
+      'startDate', 'arrivalDate',
+      'time', 'arrivalTime',
+      'company', 'busLayout',
+      'busTypeDescription',
+      'seatDescriptionFirst',
+      'priceFirst'
+    ];
 
+    for (let campo of camposRequeridos) {
+      if (!nuevoServicio[campo] || nuevoServicio[campo]?.toString().trim() === '') {
+        const etiqueta = etiquetasCampos[campo] || campo;
+        showToast('Advertencia', `Debe completar el campo: ${etiqueta}`, true);
+
+        return false;
+      }
+    }
+
+    if (!nuevoServicio.days || nuevoServicio.days.length === 0) {
+      showToast('Advertencia', 'Debe seleccionar al menos un día vigente.', true);
+      return false;
+    }
+
+    const layout = layouts.find(l => l.name === nuevoServicio.busLayout);
+    const tieneDosPisos = layout?.pisos === 2;
+
+    if (tieneDosPisos) {
+      if (!nuevoServicio.seatDescriptionSecond || nuevoServicio.seatDescriptionSecond.trim() === '') {
+        showToast('Advertencia', 'Debe completar la descripción del 2° piso.', true);
+        return false;
+      }
+      if (!nuevoServicio.priceSecond || nuevoServicio.priceSecond.toString().trim() === '') {
+        showToast('Advertencia', 'Debe ingresar el precio del 2° piso.', true);
+        return false;
+      }
+    }
+
+    return true;
+  };
+  
+  const etiquetasCampos = {
+    origin: "Ciudad Origen",
+    destination: "Ciudad Destino",
+    terminalOrigin: "Terminal Origen",
+    terminalDestination: "Terminal Destino",
+    startDate: "Fecha de Salida",
+    arrivalDate: "Fecha de Llegada",
+    time: "Hora de Salida",
+    arrivalTime: "Hora de Llegada",
+    company: "Compañía",
+    busLayout: "Layout del Bus",
+    busTypeDescription: "Tipo de Bus",
+    seatDescriptionFirst: "Descripción 1° Piso",
+    seatDescriptionSecond: "Descripción 2° Piso",
+    priceFirst: "Precio 1° Piso",
+    priceSecond: "Precio 2° Piso",
+  };  
 
   useEffect(() => {
     const fetchServicios = async () => {
@@ -75,20 +134,7 @@ const Servicios = () => {
     };
 
     fetchServicios();
-  }, []);
-
-  useEffect(() => {
-    const fetchRutas = async () => {
-      try {
-        const res = await fetch('https://boletos.dev-wit.com/api/routes/origins');
-        const data = await res.json();
-        setRutas(data);
-      } catch (error) {
-        console.error('Error al obtener rutas:', error);
-      }
-    };
-    fetchRutas();
-  }, []);
+  }, []);  
 
   useEffect(() => {
     const fetchLayouts = async () => {
@@ -102,6 +148,21 @@ const Servicios = () => {
     };
     fetchLayouts();
   }, []);
+
+  useEffect(() => {
+    const obtenerCiudades = async () => {
+      try {
+        const res = await fetch('https://boletos.dev-wit.com/api/cities');
+        const data = await res.json();
+        setCiudades(data);
+      } catch (error) {
+        console.error("Error al obtener ciudades:", error);
+      }
+    };
+
+    obtenerCiudades();
+  }, []);
+
 
   const abrirModal = (servicio) => {
     setServicioSeleccionado(servicio);
@@ -141,6 +202,8 @@ const Servicios = () => {
   };
 
   const crearNuevoServicio = async () => {
+    if (!validarCampos()) return;
+
     try {
       const token =
         sessionStorage.getItem("token") ||
@@ -219,7 +282,6 @@ const Servicios = () => {
     "Via Costa",
     "Expreso Norte"
   ];
-
 
   return (
     <>
@@ -345,38 +407,42 @@ const Servicios = () => {
           <button className="btn btn-primary" onClick={crearNuevoServicio}>
             Guardar
           </button>
-        }
-      >
+        }>
         <div className="row g-2">
           <div className="col-md-6">
-            <label className="form-label">Origen</label>
+            <label className="form-label">Ciudad Origen</label>
             <select
               name="origin"
               className="form-control"
               onChange={(e) => {
                 handleNuevoChange(e);
+                // Si mantienes lógica de rutas, deberás revisar cómo aplicar este cambio
                 const origenSeleccionado = rutas.find(r => r.origen === e.target.value);
                 setDestinosDisponibles(origenSeleccionado?.destinos || []);
               }}
             >
               <option value="">Seleccione Origen</option>
-              {rutas.map((r, i) => (
-                <option key={i} value={r.origen}>{r.origen}</option>
+              {ciudades.map((ciudad) => (
+                <option key={ciudad._id} value={ciudad.name}>
+                  {ciudad.name} ({ciudad.region})
+                </option>
               ))}
             </select>
           </div>
 
+
           <div className="col-md-6">
-            <label className="form-label">Destino</label>
+            <label className="form-label">Ciudad Destino</label>
             <select
               name="destination"
               className="form-control"
               onChange={handleNuevoChange}
-              disabled={!destinosDisponibles.length}
             >
               <option value="">Seleccione Destino</option>
-              {destinosDisponibles.map((dest, i) => (
-                <option key={i} value={dest}>{dest}</option>
+              {ciudades.map((ciudad) => (
+                <option key={ciudad._id} value={ciudad.name}>
+                  {ciudad.name} ({ciudad.region})
+                </option>
               ))}
             </select>
           </div>
