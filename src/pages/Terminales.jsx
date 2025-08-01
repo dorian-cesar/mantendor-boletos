@@ -4,8 +4,6 @@ import '@components/Dashboard/dashboard.css';
 import { showToast } from '@components/Toast/Toast';
 import Spinner from 'react-bootstrap/Spinner';
 
-
-
 const Terminales = () => {
   const [terminales, setTerminales] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -51,22 +49,24 @@ const Terminales = () => {
                       <th>#</th>
                       <th>Nombre</th>
                       <th>Ciudad</th>
+                      <th>Región</th>
                       <th>Dirección</th>
                     </tr>
                   </thead>
                   <tbody>
                     {terminales.length ? (
                       terminales.map((t, i) => (
-                        <tr key={i}>
+                        <tr key={t._id}>
                           <td>{i + 1}</td>
-                          <td>{t.nombre || '—'}</td>
-                          <td>{t.ciudad || '—'}</td>
-                          <td>{t.direccion || '—'}</td>
+                          <td>{t.name || '—'}</td>
+                          <td>{t.city || '—'}</td>
+                          <td>{t.region || '—'}</td>
+                          <td>{t.address || '—'}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="4" className="text-center text-muted">
+                        <td colSpan="5" className="text-center text-muted">
                           No hay terminales registrados.
                         </td>
                       </tr>
