@@ -34,6 +34,9 @@ const Servicios = () => {
   const [rutas, setRutas] = useState([]);
   const [destinosDisponibles, setDestinosDisponibles] = useState([]);
   const [layouts, setLayouts] = useState([]);
+  const layoutSeleccionado = layouts.find(l => l.name === nuevoServicio.busLayout);
+  const tieneDosPisos = layoutSeleccionado?.pisos === 2;
+
 
 
   useEffect(() => {
@@ -142,6 +145,12 @@ const Servicios = () => {
       const token =
         sessionStorage.getItem("token") ||
         JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
+      
+      const payload = {
+        ...nuevoServicio,
+        priceFirst: nuevoServicio.priceFirst ? Number(nuevoServicio.priceFirst) : null,
+        priceSecond: nuevoServicio.priceSecond ? Number(nuevoServicio.priceSecond) : null
+      };
 
       const res = await fetch('https://boletos.dev-wit.com/api/templates/create', {
         method: 'POST',
@@ -149,7 +158,7 @@ const Servicios = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(nuevoServicio)
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) throw new Error('Error al crear servicio');
@@ -161,6 +170,56 @@ const Servicios = () => {
       showToast('Error', 'No se pudo crear el servicio.', true);
     }
   };
+
+  const tiposDeBus = [
+    {
+      tipo: "Salón-Ejecutivo",
+      descripcionPiso1: "Asientos ejecutivo",
+      descripcionPiso2: "Ejecutivo estándar"
+    },
+    {
+      tipo: "Semi-cama",
+      descripcionPiso1: "Semi-cama normal",
+      descripcionPiso2: "Semi-cama reclinable"
+    },
+    {
+      tipo: "Cama",
+      descripcionPiso1: "Cama total",
+      descripcionPiso2: "Cama reclinable"
+    },
+    {
+      tipo: "Premium",
+      descripcionPiso1: "Butaca Premium",
+      descripcionPiso2: "Butaca Premium Relax"
+    }
+  ];
+
+  const terminales = [
+    "Terminal Alameda",
+    "Terminal Sur Santiago",
+    "Terminal Rodoviario Antofagasta",
+    "Terminal de Buses Temuco",
+    "Terminal de Buses Valparaíso",
+    "Terminal de Buses Concepción",
+    "Terminal de Buses Osorno",
+    "Terminal de Buses Iquique",
+    "Terminal de Buses Chillán",
+    "Terminal de Buses Puerto Montt"
+  ];
+
+  const companias = [
+    "BusesExpress",
+    "TurBus",
+    "Pullman Bus",
+    "Condor Bus",
+    "JetSur",
+    "Buses Romani",
+    "Buses BioBio",
+    "Andesmar Chile",
+    "Via Costa",
+    "Expreso Norte"
+  ];
+
 
   return (
     <>
@@ -323,7 +382,7 @@ const Servicios = () => {
           </div>
 
           <div className="col-md-6">
-            <label className="form-label">Fecha de Inicio</label>
+            <label className="form-label">Fecha de Salida</label>
             <input type="date" name="startDate" className="form-control" onChange={handleNuevoChange} />
           </div>
           <div className="col-md-6">
@@ -331,7 +390,15 @@ const Servicios = () => {
             <input type="time" name="time" className="form-control" onChange={handleNuevoChange} />
           </div>
           <div className="col-md-6">
-            <label className="form-label">Días</label>
+            <label className="form-label">Fecha Llegada</label>
+            <input type="date" name="arrivalDate" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Hora Llegada</label>
+            <input type="time" name="arrivalTime" className="form-control" onChange={handleNuevoChange} />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Días vigente</label>
             <div className="d-flex flex-wrap gap-1">
               {[1,2,3,4,5,6,7].map(d => (
                 <button
@@ -345,18 +412,42 @@ const Servicios = () => {
               ))}
             </div>
           </div>
+
+          <div className="col-md-6">
+            <label className="form-label">Compañía</label>
+            <select
+              name="company"
+              className="form-control"
+              onChange={handleNuevoChange}
+            >
+              <option value="">Seleccione Compañía</option>
+              {companias.map((c, i) => (
+                <option key={i} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="col-md-6">
             <label className="form-label">Layout del Bus</label>
             <select
               name="busLayout"
               className="form-control"
-              onChange={handleNuevoChange}
+              onChange={(e) => {
+                handleNuevoChange(e);
+
+                const layoutSeleccionado = layouts.find(l => l.name === e.target.value);
+                if (layoutSeleccionado?.pisos !== 2) {
+                  // Limpiar segundo piso si el layout no tiene 2 pisos
+                  setNuevoServicio(prev => ({
+                    ...prev,
+                    seatDescriptionSecond: ""
+                  }));
+                }
+              }}
             >
               <option value="">Seleccione layout</option>
               {layouts.map((layout, i) => (
-                <option key={i} value={layout.name}>
-                  {layout.name}
-                </option>
+                <option key={i} value={layout.name}>{layout.name}</option>
               ))}
             </select>
             {nuevoServicio.busLayout && (
@@ -378,49 +469,111 @@ const Servicios = () => {
             )}
 
           </div>
-          <div className="col-md-6">
-            <label className="form-label">Compañía</label>
-            <input type="text" name="company" className="form-control" onChange={handleNuevoChange} />
-          </div>
+          
           <div className="col-md-6">
             <label className="form-label">Tipo de Bus</label>
-            <input type="text" name="busTypeDescription" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="busTypeDescription"
+              className="form-control"
+              onChange={(e) => {
+                const tipo = e.target.value;
+                const match = tiposDeBus.find(t => t.tipo === tipo);
+                handleNuevoChange({ target: { name: 'busTypeDescription', value: tipo } });
+                handleNuevoChange({ target: { name: 'seatDescriptionFirst', value: match?.descripcionPiso1 || '' } });
+                handleNuevoChange({ target: { name: 'seatDescriptionSecond', value: match?.descripcionPiso2 || '' } });
+              }}
+            >
+              <option value="">Seleccione tipo</option>
+              {tiposDeBus.map((t, i) => (
+                <option key={i} value={t.tipo}>{t.tipo}</option>
+              ))}
+            </select>
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Descripción 1° Piso</label>
-            <input type="text" name="seatDescriptionFirst" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="seatDescriptionFirst"
+              className="form-control"
+              onChange={handleNuevoChange}
+              value={nuevoServicio.seatDescriptionFirst || ''}
+            >
+              <option value="">Seleccione descripción</option>
+              {[...new Set(tiposDeBus.map(t => t.descripcionPiso1))].map((desc, i) => (
+                <option key={i} value={desc}>{desc}</option>
+              ))}
+            </select>
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Descripción 2° Piso</label>
-            <input type="text" name="seatDescriptionSecond" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="seatDescriptionSecond"
+              className="form-control"
+              onChange={handleNuevoChange}
+              value={nuevoServicio.seatDescriptionSecond || ''}
+              disabled={!tieneDosPisos}
+            >
+              <option value="">{tieneDosPisos ? 'Seleccione descripción' : 'Solo 1 piso'}</option>
+              {[...new Set(tiposDeBus.map(t => t.descripcionPiso2))].map((desc, i) => (
+                <option key={i} value={desc}>{desc}</option>
+              ))}
+            </select>
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Precio 1° Piso</label>
-            <input type="number" name="priceFirst" className="form-control" onChange={handleNuevoChange} />
+            <input
+              type="number"
+              name="priceFirst"
+              className="form-control"
+              value={nuevoServicio.priceFirst ?? ''}
+              onChange={handleNuevoChange}
+              placeholder="Ej: 15000"
+            />
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Precio 2° Piso</label>
-            <input type="number" name="priceSecond" className="form-control" onChange={handleNuevoChange} />
+            <input
+              type="number"
+              name="priceSecond"
+              className="form-control"
+              value={nuevoServicio.priceSecond ?? ''}
+              onChange={handleNuevoChange}
+              placeholder="Ej: 14000"
+            />
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Terminal Origen</label>
-            <input type="text" name="terminalOrigin" className="form-control" onChange={handleNuevoChange} />
+            <select
+              name="terminalOrigin"
+              className="form-control"
+              onChange={handleNuevoChange}
+            >
+              <option value="">Seleccione Terminal</option>
+              {terminales.map((terminal, i) => (
+                <option key={i} value={terminal}>{terminal}</option>
+              ))}
+            </select>
           </div>
+
           <div className="col-md-6">
             <label className="form-label">Terminal Destino</label>
-            <input type="text" name="terminalDestination" className="form-control" onChange={handleNuevoChange} />
-          </div>
-          <div className="col-md-6">
-            <label className="form-label">Fecha Llegada</label>
-            <input type="date" name="arrivalDate" className="form-control" onChange={handleNuevoChange} />
-          </div>
-          <div className="col-md-6">
-            <label className="form-label">Hora Llegada</label>
-            <input type="time" name="arrivalTime" className="form-control" onChange={handleNuevoChange} />
-          </div>
+            <select
+              name="terminalDestination"
+              className="form-control"
+              onChange={handleNuevoChange}
+            >
+              <option value="">Seleccione Terminal</option>
+              {terminales.map((terminal, i) => (
+                <option key={i} value={terminal}>{terminal}</option>
+              ))}
+            </select>
+          </div>          
         </div>
-      </ModalBase>
-      
+      </ModalBase>      
       
       <ModalBase
               visible={modalVisible}
