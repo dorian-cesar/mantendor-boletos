@@ -36,6 +36,8 @@ const Servicios = () => {
   const layoutSeleccionado = layouts.find(l => l.name === nuevoServicio.busLayout);
   const tieneDosPisos = layoutSeleccionado?.pisos === 2;
   const [ciudades, setCiudades] = useState([]);
+  const [modalEditarVisible, setModalEditarVisible] = useState(false);
+  const [servicioEditando, setServicioEditando] = useState(null);
 
   const validarCampos = () => {
     const camposRequeridos = [
@@ -234,6 +236,67 @@ const Servicios = () => {
     }
   };
 
+  const editarServicio = (servicio) => {
+    setServicioEditando({ ...servicio }); // Clonar para evitar mutación
+    setModalEditarVisible(true);
+  };
+
+  const actualizarServicio = async () => {
+    try {
+      const token =
+        sessionStorage.getItem("token") ||
+        JSON.parse(localStorage.getItem("recordarSession") || "{}").token;
+
+      const res = await fetch(`https://boletos.dev-wit.com/api/templates/${servicioEditando._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(servicioEditando),
+      });
+
+      if (!res.ok) throw new Error("Error al actualizar servicio");
+
+      showToast("Éxito", "Servicio actualizado correctamente.");
+      setModalEditarVisible(false);
+
+      // Opcional: recargar lista
+      setServicios((prev) =>
+        prev.map((s) => (s._id === servicioEditando._id ? servicioEditando : s))
+      );
+    } catch (error) {
+      console.error(error);
+      showToast("Error", "No se pudo actualizar el servicio.", true);
+    }
+  };
+
+  const eliminarServicio = async (id) => {
+    const confirmar = window.confirm("¿Estás seguro de que deseas eliminar este servicio?");
+    if (!confirmar) return;
+
+    try {
+      const token =
+        sessionStorage.getItem("token") ||
+        JSON.parse(localStorage.getItem("recordarSession") || "{}").token;
+
+      const res = await fetch(`https://boletos.dev-wit.com/api/templates/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Error al eliminar servicio");
+
+      showToast("Éxito", "Servicio eliminado correctamente.");
+      setServicios(prev => prev.filter(s => s._id !== id));
+    } catch (error) {
+      console.error(error);
+      showToast("Error", "No se pudo eliminar el servicio.", true);
+    }
+  };
+
   const tiposDeBus = [
     {
       tipo: "Salón-Ejecutivo",
@@ -378,11 +441,19 @@ const Servicios = () => {
                           1° piso: ${servicio.priceFirst ? servicio.priceFirst.toLocaleString() : '—'}<br />
                           2° piso: ${servicio.priceSecond ? servicio.priceSecond.toLocaleString() : '—'}
                         </td>
-                        <td>
+
+                        <td className="d-flex gap-1 flex-wrap">
                           <button className="btn btn-sm btn-outline-primary" onClick={() => abrirModal(servicio)}>
-                            Ver asientos
+                            <i className="bi bi-grid-3x3-gap-fill me-1" /> Ver asientos
+                          </button>
+                          <button className="btn btn-sm btn-outline-warning" onClick={() => editarServicio(servicio)}>
+                            <i className="bi bi-pencil-square me-1" /> Editar
+                          </button>
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => eliminarServicio(servicio._id)}>
+                            <i className="bi bi-trash me-1" /> Eliminar
                           </button>
                         </td>
+
                       </tr>
                     ))
                   ) : (
@@ -398,7 +469,8 @@ const Servicios = () => {
           </div>
         </main>
       </div>
-
+                        
+      {/* Modal Nuevo Servicio */}  
       <ModalBase
         visible={modalNuevoVisible}
         title="Nuevo Servicio"
@@ -640,8 +712,54 @@ const Servicios = () => {
           </div>
                    
         </div>
-      </ModalBase>      
-      
+      </ModalBase>  
+
+      {/* Modal Editar */}        
+      <ModalBase
+        visible={modalEditarVisible}
+        title="Editar Servicio"
+        onClose={() => setModalEditarVisible(false)}
+        footer={
+          <button
+            className="btn btn-primary"
+            onClick={actualizarServicio}
+          >
+            Guardar Cambios
+          </button>
+        }
+      >
+        {servicioEditando && (
+          <div className="row g-2">
+            <div className="col-md-6">
+              <label className="form-label">Ciudad Origen</label>
+              <input
+                type="text"
+                className="form-control"
+                name="origin"
+                value={servicioEditando.origin}
+                onChange={(e) =>
+                  setServicioEditando((prev) => ({ ...prev, origin: e.target.value }))
+                }
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Ciudad Destino</label>
+              <input
+                type="text"
+                className="form-control"
+                name="destination"
+                value={servicioEditando.destination}
+                onChange={(e) =>
+                  setServicioEditando((prev) => ({ ...prev, destination: e.target.value }))
+                }
+              />
+            </div>
+            {/* ... agrega los demás campos según lo que quieras editar */}
+          </div>
+        )}
+      </ModalBase>
+    
+      {/* Modal layout asientos */} 
       <ModalBase
               visible={modalVisible}
               title={`Asientos de: ${servicioSeleccionado?.origin} → ${servicioSeleccionado?.destination}`}
