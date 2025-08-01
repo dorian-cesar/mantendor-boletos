@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  HouseDoor, People, Building, Tools, 
-  UiChecksGrid, Ticket, JournalCheck, 
-  CheckCircle, PeopleFill, TicketDetailed, 
-  Check2Square
-} from 'react-bootstrap-icons';
 import './dashboard.css';
 import Sidebar from '@components/Sidebar/Sidebar';
 
