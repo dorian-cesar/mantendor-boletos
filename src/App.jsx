@@ -5,6 +5,7 @@ import Usuarios from '@pages/Usuarios';
 import Servicios from '@pages/Servicios';
 import Ciudades from './pages/Ciudades';
 import Terminales from './pages/Terminales';
+import Companias from './pages/Companias';
 import { ToastContainer } from '@components/Toast/Toast';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/servicios" element={<Servicios />} />
         <Route path="/ciudades" element={<Ciudades />} />
         <Route path="/terminales" element={<Terminales />} />
+        <Route path="/companias" element={<Companias />} />
       </Routes>
     </BrowserRouter>
   );

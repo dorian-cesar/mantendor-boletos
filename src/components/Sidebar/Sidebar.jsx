@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Route } from "lucide-react";
 import { BusFront } from 'lucide-react';
 import { Building } from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import { Factory } from 'lucide-react';
 import { Landmark } from 'lucide-react';
 import { HouseDoor, People, CalendarCheck } from 'react-bootstrap-icons';
 import './Sidebar.css';
@@ -34,7 +36,10 @@ const Sidebar = ({ activeItem }) => {
         <Landmark className="me-2" /> Ciudades
       </Link>
       <Link to="/terminales" className={activeItem === 'terminales' ? 'active' : ''}>
-          <Building className="me-2" /> Terminales
+          <Building2 className="me-2" /> Terminales
+      </Link>
+      <Link to="/companias" className={activeItem === 'companias' ? 'active' : ''}>
+          <Factory className="me-2" /> Compañias
       </Link>
 
       <a href="#" onClick={handleLogout} className="mt-auto">
