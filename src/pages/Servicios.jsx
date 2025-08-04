@@ -140,6 +140,11 @@ const Servicios = () => {
     fetchServicios();
   }, []);
 
+  // Antes del return principal, dentro del componente
+  useEffect(() => {
+    fetchServicios();
+  }, [orden, ordenAscendente]);
+
   const fetchServicios = async () => {
     try {
       setCargando(true);
@@ -154,47 +159,54 @@ const Servicios = () => {
       if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
       const data = await res.json();
 
-      // Formateador simple yyyy-mm-dd
-      const formatoFecha = (fecha) => new Date(fecha).toISOString().split('T')[0];
-
-      // Fechas clave
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-
-      const ayer = new Date(hoy);
-      ayer.setDate(hoy.getDate() - 1);
-      const ayerStr = formatoFecha(ayer);
-
-      const manana = new Date(hoy);
-      manana.setDate(hoy.getDate() + 1);
-      const mananaStr = formatoFecha(manana);
-
-      const pasado = new Date(hoy);
-      pasado.setDate(hoy.getDate() + 2);
-      const pasadoStr = formatoFecha(pasado);
-
       // Agrupar servicios por fecha
-      const agrupados = {};
+      const agrupar = {};
       data.forEach(servicio => {
-        const fecha = formatoFecha(servicio.date);
-        if (!agrupados[fecha]) agrupados[fecha] = [];
-        agrupados[fecha].push(servicio);
+        const fecha = new Date(servicio.date).toISOString().split('T')[0];
+        if (!agrupar[fecha]) agrupar[fecha] = [];
+        agrupar[fecha].push(servicio);
       });
 
       // Ordenar por hora cada grupo
-      Object.keys(agrupados).forEach(fecha => {
-        agrupados[fecha].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+      Object.keys(agrupar).forEach((fecha) => {
+        agrupar[fecha].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
       });
 
-      // Tabs visibles
-      const fechasVisibles = [ayerStr, mananaStr, pasadoStr].filter(f => agrupados[f]);
+      // Fechas base
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechas = [];
+
+      // Día anterior
+      const diaAnterior = new Date(hoy);
+      diaAnterior.setDate(diaAnterior.getDate() - 1);
+      fechas.push(diaAnterior.toISOString().split('T')[0]);
+
+      // Día actual
+      fechas.push(hoy.toISOString().split('T')[0]);
+
+      // 6 días siguientes
+      for (let i = 1; i <= 6; i++) {
+        const dia = new Date(hoy);
+        dia.setDate(hoy.getDate() + i);
+        fechas.push(dia.toISOString().split('T')[0]);
+      }
 
       setTodosLosServicios(data);
-      setServiciosPorFecha(agrupados);
-      setFechasTabs(fechasVisibles);  // <-- debes tener este estado: const [fechasTabs, setFechasTabs] = useState([]);
-      setFechaSeleccionada(mananaStr); // Mostrar mañana por defecto
-      setServicios(agrupados[mananaStr] || []);
-      setServiciosFiltrados(ordenarServicios(agrupados[mananaStr] || [], orden, ordenAscendente));
+      setServiciosPorFecha(agrupar);
+      setFechasTabs(fechas);
+
+      // Mostrar por defecto el día de mañana si existe, si no hoy
+      const fechaManana = new Date(hoy);
+      fechaManana.setDate(hoy.getDate() + 1);
+      const fechaMananaStr = fechaManana.toISOString().split('T')[0];
+      const defaultFecha = fechas.includes(fechaMananaStr) ? fechaMananaStr : hoy.toISOString().split('T')[0];
+
+      setFechaSeleccionada(defaultFecha);
+
+      const serviciosMañana = agrupar[defaultFecha] || [];
+      setServicios(serviciosMañana);
+      setServiciosFiltrados(ordenarServicios(serviciosMañana, orden, ordenAscendente));
     } catch (error) {
       console.error('Error al cargar servicios:', error);
       showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -448,7 +460,35 @@ const Servicios = () => {
     "Andesmar Chile",
     "Via Costa",
     "Expreso Norte"
-  ];
+  ];  
+
+  const generarFechasTabs = () => {
+    const hoy = new Date();
+    const fechas = [];
+
+    // Ayer
+    const ayer = new Date(hoy);
+    ayer.setDate(hoy.getDate() - 1);
+    fechas.push(ayer.toISOString().split('T')[0]);
+
+    // Hoy
+    fechas.push(hoy.toISOString().split('T')[0]);
+
+    // Próximos 6 días
+    for (let i = 1; i <= 6; i++) {
+      const fecha = new Date(hoy);
+      fecha.setDate(hoy.getDate() + i);
+      fechas.push(fecha.toISOString().split('T')[0]);
+    }
+
+    return fechas;
+  };
+
+  // En tu useEffect o donde cargas los datos
+  useEffect(() => {
+    const fechas = generarFechasTabs();
+    setFechasTabs(fechas); // asegúrate de definir este estado con useState
+  }, []);
 
   return (
     <>
@@ -463,12 +503,7 @@ const Servicios = () => {
           <div className="stats-box">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h4 className="mb-0">
-                Servicios programados para mañana (
-                {new Date(Date.now() + 86400000).toLocaleDateString("es-CL", {
-                  day: "2-digit",
-                  month: "long",
-                })}
-                )
+                Servicios programados por día                 
               </h4>
               <button
                 className="btn btn-primary btn-sm"
