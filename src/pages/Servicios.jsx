@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import ModalBase from '@components/ModalBase/ModalBase';
@@ -53,21 +53,40 @@ const Servicios = () => {
   const [origenSeleccionado, setOrigenSeleccionado] = useState('');
   const [destinosDisponibles, setDestinosDisponibles] = useState([]);
   const [destinoSeleccionado, setDestinoSeleccionado] = useState('');
+  const [origenesDisponibles, setOrigenesDisponibles] = useState([]);
+
   
 
   const ordenarServicios = (lista, criterio, asc = true) => {
     if (!lista) return [];
-    
+
     const sorted = [...lista].sort((a, b) => {
       let resultado = 0;
 
-      switch (criterio) {        
-        case 'hora':
-          resultado = a.departureTime.localeCompare(b.departureTime);
+      switch (criterio) {
+        case 'hora': {
+          const getMinutos = (horaStr) => {
+            if (!horaStr || !horaStr.includes(':')) return null;
+            const [h, m] = horaStr.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return null;
+            return h * 60 + m;
+          };
+
+          const minutosA = getMinutos(a.departureTime);
+          const minutosB = getMinutos(b.departureTime);
+
+          if (minutosA === null && minutosB === null) return 0;
+          if (minutosA === null) return asc ? 1 : -1;
+          if (minutosB === null) return asc ? -1 : 1;
+
+          resultado = asc ? minutosA - minutosB : minutosB - minutosA;
           break;
+        }
+
         case 'tipoBus':
-          resultado = a.busTypeDescription?.localeCompare(b.busTypeDescription || '') || 0;
+          resultado = (a.busTypeDescription || '').localeCompare(b.busTypeDescription || '');
           break;
+
         default:
           resultado = 0;
       }
@@ -78,26 +97,25 @@ const Servicios = () => {
     return sorted;
   };
 
-  const todosLosServiciosFiltrados = ordenarServicios(
-    todosLosServicios
-      .filter((s) => {
+  const todosLosServiciosFiltrados = useMemo(() => {
+    return ordenarServicios(
+      todosLosServicios.filter((s) => {
         const coincideOrigen = !origenSeleccionado || s.origin === origenSeleccionado;
         const coincideDestino = !destinoSeleccionado || s.destination === destinoSeleccionado;
         const texto = `${s.origin} ${s.destination} ${s._id}`.toLowerCase();
         return coincideOrigen && coincideDestino && texto.includes(busqueda.toLowerCase());
       }),
-    orden,
-    ordenAscendente
-  );
-
-
+      orden,
+      ordenAscendente
+    );
+  }, [todosLosServicios, busqueda, origenSeleccionado, destinoSeleccionado, orden, ordenAscendente]);
 
   const handleChangeOrden = (nuevoOrden) => {
     setOrden(nuevoOrden);    
   };
 
   const handleToggleOrden = () => {
-    setOrdenAscendente(prev => !prev);    
+    setOrdenAscendente(prev => !prev);
   };
 
   const validarCampos = () => {
@@ -191,37 +209,34 @@ const Servicios = () => {
   useEffect(() => {
     fetchServicios();
   }, []);
-  
-  useEffect(() => {
-    fetchServicios();
-  }, [orden, ordenAscendente]);
 
   useEffect(() => {
-    // Verificar que tenemos los datos necesarios
-    if (!fechaSeleccionada || !serviciosPorFecha[fechaSeleccionada]) return;
+    if (!fechaSeleccionada) return;
 
-    const serviciosFecha = serviciosPorFecha[fechaSeleccionada];
-    
-    // Aplicar filtro si existe búsqueda
-    let serviciosMostrar = serviciosFecha;
-    if (busqueda) {
-      serviciosMostrar = serviciosFecha.filter((s) => {
-        return (
-          s.origin?.toLowerCase().includes(busqueda) ||
-          s.destination?.toLowerCase().includes(busqueda) ||
-          s._id?.toLowerCase().includes(busqueda) ||
-          s.terminalOrigin?.toLowerCase().includes(busqueda) ||
-          s.terminalDestination?.toLowerCase().includes(busqueda) ||
-          s.busTypeDescription?.toLowerCase().includes(busqueda) ||
-          s.company?.toLowerCase().includes(busqueda)
-        );
-      });
-    }
-    
-    // Aplicar ordenación
-    const serviciosOrdenados = ordenarServicios(serviciosMostrar, orden, ordenAscendente);
-    setServiciosFiltrados(serviciosOrdenados);
-  }, [fechaSeleccionada, serviciosPorFecha, busqueda, orden, ordenAscendente]);
+    const listaBase = 
+      fechaSeleccionada === "todos"
+        ? todosLosServicios
+        : (serviciosPorFecha[fechaSeleccionada] || []);
+
+    const filtrados = listaBase.filter((s) => {
+      const coincideOrigen = !origenSeleccionado || s.origin === origenSeleccionado;
+      const coincideDestino = !destinoSeleccionado || s.destination === destinoSeleccionado;
+      const texto = `${s.origin} ${s.destination} ${s._id}`.toLowerCase();
+      return coincideOrigen && coincideDestino && texto.includes(busqueda.toLowerCase());
+    });
+
+    const ordenados = ordenarServicios(filtrados, orden, ordenAscendente);
+    setServiciosFiltrados(ordenados);
+  }, [
+    fechaSeleccionada,
+    serviciosPorFecha,
+    todosLosServicios,
+    busqueda,
+    orden,
+    ordenAscendente,
+    origenSeleccionado,
+    destinoSeleccionado
+  ]);  
 
   useEffect(() => {
     const cargarOrigenes = async () => {
@@ -241,8 +256,20 @@ const Servicios = () => {
     const origen = origenesDestinos.find((o) => o.origen === origenSeleccionado);
     setDestinosDisponibles(origen ? origen.destinos : []);
     setDestinoSeleccionado('');
-  }, [origenSeleccionado]);
- 
+  }, [origenSeleccionado]); 
+
+  useEffect(() => {
+    if (!destinoSeleccionado) {
+      setOrigenesDisponibles([]);
+      return;
+    }
+
+    const posiblesOrigenes = origenesDestinos
+      .filter((o) => o.destinos.includes(destinoSeleccionado))
+      .map((o) => o.origen);
+
+    setOrigenesDisponibles(posiblesOrigenes);
+  }, [destinoSeleccionado]);
 
   const fetchServicios = async () => {
     try {
@@ -300,7 +327,7 @@ const Servicios = () => {
 
       // Establecer fecha seleccionada si no hay una ya
       if (!fechaSeleccionada) {
-        setFechaSeleccionada(hoy.toISOString().split("T")[0]);
+        setFechaSeleccionada(hoy.toLocaleDateString("sv-SE"));
       }
 
       // Inicializar serviciosFiltrados si corresponde
@@ -525,7 +552,7 @@ const Servicios = () => {
               />
             </div>
 
-            <div className="mb-3 d-flex align-items-center gap-3">
+            {/* <div className="mb-3 d-flex align-items-center gap-3">
               <label className="form-label mb-0">Ordenar por:</label>
               <select
                 className="form-select form-select-sm"
@@ -548,7 +575,7 @@ const Servicios = () => {
                   <i className="bi bi-sort-up"></i>
                 )}
               </button>
-            </div>
+            </div> */}
 
             <div className="mb-3 d-flex gap-3 align-items-end">
               <div>
@@ -559,8 +586,11 @@ const Servicios = () => {
                   onChange={(e) => setOrigenSeleccionado(e.target.value)}
                 >
                   <option value="">Todos</option>
-                  {origenesDestinos.map((o) => (
-                    <option key={o.origen} value={o.origen}>{o.origen}</option>
+                  {(destinoSeleccionado
+                    ? origenesDisponibles
+                    : origenesDestinos.map((o) => o.origen)
+                  ).map((origen) => (
+                    <option key={origen} value={origen}>{origen}</option>
                   ))}
                 </select>
               </div>
@@ -570,15 +600,18 @@ const Servicios = () => {
                   className="form-select form-select-sm"
                   value={destinoSeleccionado}
                   onChange={(e) => setDestinoSeleccionado(e.target.value)}
-                  disabled={!origenSeleccionado}
                 >
                   <option value="">Todos</option>
-                  {destinosDisponibles.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                  {(origenSeleccionado
+                    ? destinosDisponibles
+                    : [...new Set(origenesDestinos.flatMap((o) => o.destinos))]
+                  ).map((destino) => (
+                    <option key={destino} value={destino}>{destino}</option>
                   ))}
                 </select>
               </div>
             </div>
+
 
             <Tabs
               activeKey={fechaSeleccionada}
@@ -598,7 +631,7 @@ const Servicios = () => {
             >
               {/* Tab: Todos */}
               <Tab eventKey="todos" title="Todos">
-                {todosLosServiciosFiltrados.length > 0 ? (
+                {serviciosFiltrados.length > 0 ? (
                   <div className="table-responsive">
                     <table className="table table-bordered table-hover align-middle">
                       <thead className="table-light">
@@ -606,7 +639,8 @@ const Servicios = () => {
                           <th>ID Servicio</th>
                           <th>Origen → Destino</th>
                           <th>Terminales</th>
-                          <th>Hora Salida / Llegada</th>
+                          <th>Hora Salida</th>
+                          <th>Hora Llegada</th>
                           <th>Fecha salida</th>
                           <th>Fecha llegada</th>
                           <th>Tipo de Bus</th>
@@ -615,12 +649,13 @@ const Servicios = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {todosLosServiciosFiltrados.map((servicio) => (
+                        {serviciosFiltrados.map((servicio) => (
                           <tr key={servicio._id}>
                             <td>{servicio._id}</td>
                             <td>{servicio.origin} → {servicio.destination}</td>
                             <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
-                            <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
+                            <td>{servicio.departureTime}</td>
+                            <td>{servicio.arrivalTime}</td>
                             <td>{formatearFecha(servicio.date)}</td>
                             <td>{formatearFecha(servicio.arrivalDate)}</td>
                             <td>{servicio.busTypeDescription}</td>
@@ -669,68 +704,59 @@ const Servicios = () => {
                   titulo = `${d.padStart(2, '0')}-${mesStr}`;
                 }
 
-                const filtrados = serviciosPorFecha[fecha] || [];
-
-                const serviciosFiltrados = filtrados.filter((s) => {
-                  const coincideOrigen = !origenSeleccionado || s.origin === origenSeleccionado;
-                  const coincideDestino = !destinoSeleccionado || s.destination === destinoSeleccionado;
-                  return coincideOrigen && coincideDestino;
-                });
-
-                const serviciosFiltradosBusqueda = serviciosFiltrados.filter((s) => {
-                  const texto = `${s.origin} ${s.destination} ${s._id}`.toLowerCase();
-                  return texto.includes(busqueda.toLowerCase());
-                });
-
-                const serviciosOrdenados = ordenarServicios(serviciosFiltradosBusqueda, orden, ordenAscendente);
-
                 return (
                   <Tab eventKey={fecha} title={titulo} key={fecha}>
-                    {serviciosOrdenados.length > 0 ? (
-                      <div className="table-responsive">
-                        <table className="table table-bordered table-hover align-middle">
-                          <thead className="table-light">
-                            <tr>
-                              <th>ID Servicio</th>
-                              <th>Origen → Destino</th>
-                              <th>Terminales</th>
-                              <th>Hora Salida / Llegada</th>
-                              <th>Fecha salida</th>
-                              <th>Fecha llegada</th>
-                              <th>Tipo de Bus</th>
-                              <th>Precios</th>
-                              <th>Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {serviciosOrdenados.map((servicio) => (
-                              <tr key={servicio._id}>
-                                <td>{servicio._id}</td>
-                                <td>{servicio.origin} → {servicio.destination}</td>
-                                <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
-                                <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
-                                <td>{formatearFecha(servicio.date)}</td>
-                                <td>{formatearFecha(servicio.arrivalDate)}</td>
-                                <td>{servicio.busTypeDescription}</td>
-                                <td>
-                                  1° piso: ${servicio.priceFirst}<br />
-                                  2° piso: ${servicio.priceSecond}
-                                </td>
-                                <td>
-                                  <button className="btn btn-sm btn-warning" onClick={() => handleEditar(servicio)}>
-                                    <i className="bi bi-pencil-square"></i>
-                                  </button>{' '}
-                                  <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(servicio._id)}>
-                                    <i className="bi bi-trash"></i>
-                                  </button>
-                                </td>
+                    {fecha === fechaSeleccionada ? (
+                      serviciosFiltrados.length > 0 ? (
+                        <div className="table-responsive">
+                          <table className="table table-bordered table-hover align-middle">
+                            <thead className="table-light">
+                              <tr>
+                                <th>ID Servicio</th>
+                                <th>Origen → Destino</th>
+                                <th>Terminales</th>
+                                <th>Hora Salida</th>
+                                <th>Hora Llegada</th>
+                                <th>Fecha salida</th>
+                                <th>Fecha llegada</th>
+                                <th>Tipo de Bus</th>
+                                <th>Precios</th>
+                                <th>Acciones</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody>
+                              {serviciosFiltrados.map((servicio) => (
+                                <tr key={servicio._id}>
+                                  <td>{servicio._id}</td>
+                                  <td>{servicio.origin} → {servicio.destination}</td>
+                                  <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
+                                  <td>{servicio.departureTime}</td>
+                                  <td>{servicio.arrivalTime}</td>
+                                  <td>{formatearFecha(servicio.date)}</td>
+                                  <td>{formatearFecha(servicio.arrivalDate)}</td>
+                                  <td>{servicio.busTypeDescription}</td>
+                                  <td>
+                                    1° piso: ${servicio.priceFirst}<br />
+                                    2° piso: ${servicio.priceSecond}
+                                  </td>
+                                  <td>
+                                    <button className="btn btn-sm btn-warning" onClick={() => handleEditar(servicio)}>
+                                      <i className="bi bi-pencil-square"></i>
+                                    </button>{' '}
+                                    <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(servicio._id)}>
+                                      <i className="bi bi-trash"></i>
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-muted">No hay servicios para esta fecha</p>
+                      )
                     ) : (
-                      <p className="text-muted">No hay servicios para esta fecha</p>
+                      <p className="text-muted">Selecciona esta pestaña para ver los servicios</p>
                     )}
                   </Tab>
                 );
