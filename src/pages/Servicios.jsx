@@ -46,6 +46,13 @@ const Servicios = () => {
   const [serviciosPorFecha, setServiciosPorFecha] = useState({});   
   const [fechasTabs, setFechasTabs] = useState([]);
 
+  const handleChangeOrden = (nuevoOrden) => {
+    setOrden(nuevoOrden);    
+  };
+
+  const handleToggleOrden = () => {
+    setOrdenAscendente(prev => !prev);    
+  };
 
   const validarCampos = () => {
     const camposRequeridos = [
@@ -106,29 +113,7 @@ const Servicios = () => {
     seatDescriptionSecond: "Descripción 2° Piso",
     priceFirst: "Precio 1° Piso",
     priceSecond: "Precio 2° Piso",
-  };
-
-  useEffect(() => {
-    // Cuando cambia la fecha seleccionada, aplicar el filtro actual si existe
-    if (busqueda) {
-      const serviciosFecha = serviciosPorFecha[fechaSeleccionada] || [];
-      const filtrados = serviciosFecha.filter((s) => {
-        return (
-          s.origin.toLowerCase().includes(busqueda) ||
-          s.destination.toLowerCase().includes(busqueda) ||
-          s._id.toLowerCase().includes(busqueda) ||
-          s.terminalOrigin.toLowerCase().includes(busqueda) ||
-          s.terminalDestination.toLowerCase().includes(busqueda) ||
-          s.busTypeDescription.toLowerCase().includes(busqueda) ||
-          s.company.toLowerCase().includes(busqueda)
-        );
-      });
-      setServiciosFiltrados(filtrados);
-    } else {
-      // Si no hay filtro, mostrar todos los servicios de la fecha
-      setServiciosFiltrados(serviciosPorFecha[fechaSeleccionada] || []);
-    }
-  }, [fechaSeleccionada, serviciosPorFecha, busqueda]);  
+  };  
 
   useEffect(() => {
     const fetchLayouts = async () => {
@@ -165,6 +150,33 @@ const Servicios = () => {
   useEffect(() => {
     fetchServicios();
   }, [orden, ordenAscendente]);
+
+  useEffect(() => {
+    // Verificar que tenemos los datos necesarios
+    if (!fechaSeleccionada || !serviciosPorFecha[fechaSeleccionada]) return;
+
+    const serviciosFecha = serviciosPorFecha[fechaSeleccionada];
+    
+    // Aplicar filtro si existe búsqueda
+    let serviciosMostrar = serviciosFecha;
+    if (busqueda) {
+      serviciosMostrar = serviciosFecha.filter((s) => {
+        return (
+          s.origin?.toLowerCase().includes(busqueda) ||
+          s.destination?.toLowerCase().includes(busqueda) ||
+          s._id?.toLowerCase().includes(busqueda) ||
+          s.terminalOrigin?.toLowerCase().includes(busqueda) ||
+          s.terminalDestination?.toLowerCase().includes(busqueda) ||
+          s.busTypeDescription?.toLowerCase().includes(busqueda) ||
+          s.company?.toLowerCase().includes(busqueda)
+        );
+      });
+    }
+    
+    // Aplicar ordenación
+    const serviciosOrdenados = ordenarServicios(serviciosMostrar, orden, ordenAscendente);
+    setServiciosFiltrados(serviciosOrdenados);
+  }, [fechaSeleccionada, serviciosPorFecha, busqueda, orden, ordenAscendente]);
 
   const fetchServicios = async () => {
     try {
@@ -217,17 +229,20 @@ const Servicios = () => {
       setServiciosPorFecha(agrupar);
       setFechasTabs(fechas);
 
-      // Mostrar por defecto el día de mañana si existe, si no hoy
-      const fechaManana = new Date(hoy);
-      fechaManana.setDate(hoy.getDate() + 1);
-      const fechaMananaStr = fechaManana.toISOString().split('T')[0];
-      const defaultFecha = fechas.includes(fechaMananaStr) ? fechaMananaStr : hoy.toISOString().split('T')[0];
+      // Solo establecer fecha por defecto si no hay una seleccionada
+      if (!fechaSeleccionada) {
+        const fechaManana = new Date(hoy);
+        fechaManana.setDate(hoy.getDate() + 1);
+        const fechaMananaStr = fechaManana.toISOString().split('T')[0];
+        const defaultFecha = fechas.includes(fechaMananaStr) ? fechaMananaStr : hoy.toISOString().split('T')[0];
+        setFechaSeleccionada(defaultFecha);
+      }
 
-      setFechaSeleccionada(defaultFecha);
-
-      const serviciosMañana = agrupar[defaultFecha] || [];
-      setServicios(serviciosMañana);
-      setServiciosFiltrados(ordenarServicios(serviciosMañana, orden, ordenAscendente));
+      // Actualizar servicios filtrados para la fecha seleccionada actual
+      if (fechaSeleccionada && agrupar[fechaSeleccionada]) {
+        const serviciosFecha = agrupar[fechaSeleccionada];
+        setServiciosFiltrados(ordenarServicios(serviciosFecha, orden, ordenAscendente));
+      }
     } catch (error) {
       console.error('Error al cargar servicios:', error);
       showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -264,6 +279,8 @@ const Servicios = () => {
   };
 
   const ordenarServicios = (lista, criterio, asc = true) => {
+    if (!lista) return [];
+    
     const sorted = [...lista].sort((a, b) => {
       let resultado = 0;
 
@@ -275,7 +292,7 @@ const Servicios = () => {
           resultado = `${a.origin}-${a.destination}`.localeCompare(`${b.origin}-${b.destination}`);
           break;
         case 'tipoBus':
-          resultado = a.busTypeDescription.localeCompare(b.busTypeDescription);
+          resultado = a.busTypeDescription?.localeCompare(b.busTypeDescription || '') || 0;
           break;
         default:
           resultado = 0;
@@ -344,12 +361,7 @@ const Servicios = () => {
       console.error(error);
       showToast('Error', 'No se pudo guardar el servicio.', true);
     }
-  };
-
-  const editarServicio = (servicio) => {
-    setServicioEditando({ ...servicio }); // Clonar para evitar mutación
-    setModalEditarVisible(true);
-  };
+  };  
 
   const actualizarServicio = async () => {
     if (!validarCampos()) return;
@@ -505,13 +517,7 @@ const Servicios = () => {
                 className="form-select form-select-sm"
                 style={{ maxWidth: "200px" }}
                 value={orden}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setOrden(value);
-                  setServiciosFiltrados(
-                    ordenarServicios(serviciosFiltrados, value, ordenAscendente)
-                  );
-                }}
+                onChange={(e) => handleChangeOrden(e.target.value)}
               >               
                 <option value="hora">Hora de Salida</option>
                 <option value="origenDestino">Origen/Destino</option>
@@ -520,12 +526,7 @@ const Servicios = () => {
 
               <button
                 className="btn btn-outline-secondary btn-sm"
-                onClick={() => {
-                  setOrdenAscendente((prev) => !prev);
-                  setServiciosFiltrados(
-                    ordenarServicios(serviciosFiltrados, orden, !ordenAscendente)
-                  );
-                }}
+                onClick={handleToggleOrden}
                 title={ordenAscendente ? "Orden ascendente" : "Orden descendente"}
               >
                 {ordenAscendente ? (
@@ -538,13 +539,7 @@ const Servicios = () => {
 
             <Tabs
               activeKey={fechaSeleccionada}
-              onSelect={(fecha) => {
-                setFechaSeleccionada(fecha);
-                // Resetear el filtrado cuando cambias de pestaña
-                if (!busqueda) {
-                  setServiciosFiltrados(serviciosPorFecha[fecha] || []);
-                }
-              }}
+              onSelect={(fecha) => setFechaSeleccionada(fecha)}
               className="mb-3"
             >
               {fechasTabs.map((fecha) => (
