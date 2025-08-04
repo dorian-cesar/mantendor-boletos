@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import ModalBase from '@components/ModalBase/ModalBase';
@@ -6,18 +6,14 @@ import { showToast } from '@components/Toast/Toast';
 import { Tabs, Tab } from 'react-bootstrap';
 
 const Servicios = () => {
-  const formatearFecha = (fechaStr) => {
-    const [a, m, d] = fechaStr.split("-");
-    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${a}`;
-  };
-  const [todosLosServicios, setTodosLosServicios] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [serviciosFiltrados, setServiciosFiltrados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalNuevoVisible, setModalNuevoVisible] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
-  const [busqueda, setBusqueda] = useState(''); 
+  const [busqueda, setBusqueda] = useState('');
+  const [todosLosServicios, setTodosLosServicios] = useState([]);
   const [nuevoServicio, setNuevoServicio] = useState({
     origin: '',
     destination: '',
@@ -48,75 +44,6 @@ const Servicios = () => {
   const [ordenAscendente, setOrdenAscendente] = useState(true);
   const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
   const [serviciosPorFecha, setServiciosPorFecha] = useState({});   
-  const [fechasTabs, setFechasTabs] = useState([]);
-  const [origenesDestinos, setOrigenesDestinos] = useState([]);
-  const [origenSeleccionado, setOrigenSeleccionado] = useState('');
-  const [destinosDisponibles, setDestinosDisponibles] = useState([]);
-  const [destinoSeleccionado, setDestinoSeleccionado] = useState('');
-  const [origenesDisponibles, setOrigenesDisponibles] = useState([]);
-
-  
-
-  const ordenarServicios = (lista, criterio, asc = true) => {
-    if (!lista) return [];
-
-    const sorted = [...lista].sort((a, b) => {
-      let resultado = 0;
-
-      switch (criterio) {
-        case 'hora': {
-          const getMinutos = (horaStr) => {
-            if (!horaStr || !horaStr.includes(':')) return null;
-            const [h, m] = horaStr.split(':').map(Number);
-            if (isNaN(h) || isNaN(m)) return null;
-            return h * 60 + m;
-          };
-
-          const minutosA = getMinutos(a.departureTime);
-          const minutosB = getMinutos(b.departureTime);
-
-          if (minutosA === null && minutosB === null) return 0;
-          if (minutosA === null) return asc ? 1 : -1;
-          if (minutosB === null) return asc ? -1 : 1;
-
-          resultado = asc ? minutosA - minutosB : minutosB - minutosA;
-          break;
-        }
-
-        case 'tipoBus':
-          resultado = (a.busTypeDescription || '').localeCompare(b.busTypeDescription || '');
-          break;
-
-        default:
-          resultado = 0;
-      }
-
-      return asc ? resultado : -resultado;
-    });
-
-    return sorted;
-  };
-
-  const todosLosServiciosFiltrados = useMemo(() => {
-    return ordenarServicios(
-      todosLosServicios.filter((s) => {
-        const coincideOrigen = !origenSeleccionado || s.origin === origenSeleccionado;
-        const coincideDestino = !destinoSeleccionado || s.destination === destinoSeleccionado;
-        const texto = `${s.origin} ${s.destination} ${s._id}`.toLowerCase();
-        return coincideOrigen && coincideDestino && texto.includes(busqueda.toLowerCase());
-      }),
-      orden,
-      ordenAscendente
-    );
-  }, [todosLosServicios, busqueda, origenSeleccionado, destinoSeleccionado, orden, ordenAscendente]);
-
-  const handleChangeOrden = (nuevoOrden) => {
-    setOrden(nuevoOrden);    
-  };
-
-  const handleToggleOrden = () => {
-    setOrdenAscendente(prev => !prev);
-  };
 
   const validarCampos = () => {
     const camposRequeridos = [
@@ -177,7 +104,8 @@ const Servicios = () => {
     seatDescriptionSecond: "Descripción 2° Piso",
     priceFirst: "Precio 1° Piso",
     priceSecond: "Precio 2° Piso",
-  };  
+  };
+  
 
   useEffect(() => {
     const fetchLayouts = async () => {
@@ -210,141 +138,88 @@ const Servicios = () => {
     fetchServicios();
   }, []);
 
-  useEffect(() => {
-    if (!fechaSeleccionada) return;
-
-    const listaBase = 
-      fechaSeleccionada === "todos"
-        ? todosLosServicios
-        : (serviciosPorFecha[fechaSeleccionada] || []);
-
-    const filtrados = listaBase.filter((s) => {
-      const coincideOrigen = !origenSeleccionado || s.origin === origenSeleccionado;
-      const coincideDestino = !destinoSeleccionado || s.destination === destinoSeleccionado;
-      const texto = `${s.origin} ${s.destination} ${s._id}`.toLowerCase();
-      return coincideOrigen && coincideDestino && texto.includes(busqueda.toLowerCase());
-    });
-
-    const ordenados = ordenarServicios(filtrados, orden, ordenAscendente);
-    setServiciosFiltrados(ordenados);
-  }, [
-    fechaSeleccionada,
-    serviciosPorFecha,
-    todosLosServicios,
-    busqueda,
-    orden,
-    ordenAscendente,
-    origenSeleccionado,
-    destinoSeleccionado
-  ]);  
-
-  useEffect(() => {
-    const cargarOrigenes = async () => {
-      try {
-        const res = await fetch('https://boletos.dev-wit.com/api/routes/origins');
-        const data = await res.json();
-        setOrigenesDestinos(data);
-      } catch (error) {
-        console.error('Error cargando origenes:', error);
-      }
-    };
-
-    cargarOrigenes();
-  }, []);
-
-  useEffect(() => {
-    const origen = origenesDestinos.find((o) => o.origen === origenSeleccionado);
-    setDestinosDisponibles(origen ? origen.destinos : []);
-    setDestinoSeleccionado('');
-  }, [origenSeleccionado]); 
-
-  useEffect(() => {
-    if (!destinoSeleccionado) {
-      setOrigenesDisponibles([]);
-      return;
-    }
-
-    const posiblesOrigenes = origenesDestinos
-      .filter((o) => o.destinos.includes(destinoSeleccionado))
-      .map((o) => o.origen);
-
-    setOrigenesDisponibles(posiblesOrigenes);
-  }, [destinoSeleccionado]);
-
   const fetchServicios = async () => {
     try {
       setCargando(true);
       const token =
         sessionStorage.getItem("token") ||
-        JSON.parse(localStorage.getItem("recordarSession") || "{}").token;
+        JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
 
-      const res = await fetch("https://boletos.dev-wit.com/api/services/all", {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch('https://boletos.dev-wit.com/api/services/all', {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error("No se pudieron obtener los servicios.");
+      if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
       const data = await res.json();
 
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-
-      const serviciosNormalizados = data.map((servicio) => {
-        const fechaServicio = new Date(servicio.date);
-        const fechaNormalizada = fechaServicio.toLocaleDateString("sv-SE"); // YYYY-MM-DD
-
-        return {
-          ...servicio,
-          fechaNormalizada,
-          date: fechaNormalizada,
-          arrivalDate: new Date(servicio.arrivalDate).toISOString().split("T")[0],
-        };
-      });
+      const formatoFecha = (fecha) => {
+        return new Date(fecha).toISOString().split('T')[0];
+      };
 
       // Agrupar por fecha
-      const serviciosPorFechaTmp = {};
-      serviciosNormalizados.forEach((servicio) => {
-        const fecha = servicio.fechaNormalizada;
-        if (!serviciosPorFechaTmp[fecha]) serviciosPorFechaTmp[fecha] = [];
-        serviciosPorFechaTmp[fecha].push(servicio);
+      const agrupados = {};
+      data.forEach(servicio => {
+        const fecha = new Date(servicio.date).toISOString().split('T')[0];
+        if (!agrupados[fecha]) agrupados[fecha] = [];
+        agrupados[fecha].push(servicio);
       });
 
-      // Generar fechas para los tabs
-      const fechasTabs = [];
-      const ayer = new Date(hoy);
-      ayer.setDate(hoy.getDate() - 1);
-      fechasTabs.push(ayer.toLocaleDateString("sv-SE"));
-      fechasTabs.push(hoy.toLocaleDateString("sv-SE"));
-      for (let i = 1; i <= 6; i++) {
-        const dia = new Date(hoy);
-        dia.setDate(hoy.getDate() + i);
-        fechasTabs.push(dia.toLocaleDateString("sv-SE"));
-      }
+      // Ordenar cada grupo por hora
+      Object.keys(agrupados).forEach((fecha) => {
+        agrupados[fecha].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+      });
 
-      // Actualizar estados
-      setTodosLosServicios(serviciosNormalizados); // ✅ Aquí cargas todos
-      setServiciosPorFecha(serviciosPorFechaTmp);
-      setFechasTabs(fechasTabs);
+      // Ordenar fechas
+      const fechasOrdenadas = Object.keys(agrupados).sort();
 
-      // Establecer fecha seleccionada si no hay una ya
-      if (!fechaSeleccionada) {
-        setFechaSeleccionada(hoy.toLocaleDateString("sv-SE"));
-      }
+      // Detectar mañana
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechaManana = new Date();
+      fechaManana.setDate(fechaManana.getDate() + 1);
+      const fechaMananaStr = formatoFecha(fechaManana);
 
-      // Inicializar serviciosFiltrados si corresponde
-      const hoyStr = hoy.toLocaleDateString("sv-SE");
-      if (serviciosPorFechaTmp[hoyStr]) {
-        setServiciosFiltrados(
-          ordenarServicios(serviciosPorFechaTmp[hoyStr], orden, ordenAscendente)
-        );
+      if (agrupados[fechaMananaStr]) {
+        setFechaSeleccionada(fechaMananaStr);
       } else {
-        setServiciosFiltrados([]);
+        const fechasOrdenadas = Object.keys(agrupados).sort((a, b) => new Date(a) - new Date(b));
+        setFechaSeleccionada(fechasOrdenadas[0] || '');
       }
+
+      const seleccion = fechasOrdenadas.find(f => f >= fechaMananaStr) || fechasOrdenadas[0];
+
+      // Guardar estado
+      setTodosLosServicios(data);
+      setServiciosPorFecha(agrupados);
+      setFechaSeleccionada(seleccion);
+
+      setServicios(agrupados[seleccion] || []);
+      setServiciosFiltrados(ordenarServicios(agrupados[seleccion] || [], orden, ordenAscendente));
     } catch (error) {
-      console.error("Error al cargar servicios:", error);
-      showToast("Error", "No se pudieron cargar los servicios.", true);
+      console.error('Error al cargar servicios:', error);
+      showToast('Error', 'No se pudieron cargar los servicios.', true);
     } finally {
       setCargando(false);
     }
+  };
+
+  const abrirModal = (servicio) => {
+    setServicioSeleccionado(servicio);
+    setModalVisible(true);
+  };
+
+  const abrirModalEditar = (servicio) => {
+    setModoEdicion(true);
+    setServicioSeleccionado(servicio);
+    setNuevoServicio({
+      ...servicio,
+      startDate: servicio.date?.slice(0, 10),
+      arrivalDate: servicio.arrivalDate?.slice(0, 10),
+      time: servicio.departureTime,
+      arrivalTime: servicio.arrivalTime,
+      days: servicio.days || []
+    });
+    setModalNuevoVisible(true);
   };
 
   const handleBuscar = (e) => {
@@ -352,27 +227,45 @@ const Servicios = () => {
     setBusqueda(texto);
 
     if (!texto) {
-      // Si no hay texto de búsqueda, mostrar todos los servicios de la fecha seleccionada
-      setServiciosFiltrados(serviciosPorFecha[fechaSeleccionada] || []);
+      setServiciosFiltrados(servicios);
       return;
     }
 
-    // Filtrar los servicios de la fecha seleccionada
-    const serviciosFecha = serviciosPorFecha[fechaSeleccionada] || [];
-    const filtrados = serviciosFecha.filter((s) => {
-      return (
-        s.origin.toLowerCase().includes(texto) ||
-        s.destination.toLowerCase().includes(texto) ||
-        s._id.toLowerCase().includes(texto) ||
-        s.terminalOrigin.toLowerCase().includes(texto) ||
-        s.terminalDestination.toLowerCase().includes(texto) ||
-        s.busTypeDescription.toLowerCase().includes(texto) ||
-        s.company.toLowerCase().includes(texto)
+    const filtrados = todosLosServicios.filter((s) => {
+      return Object.values(s).some((valor) =>
+        String(valor).toLowerCase().includes(texto)
       );
     });
 
     setServiciosFiltrados(filtrados);
-  };  
+  };
+
+  const ordenarServicios = (lista, criterio, asc = true) => {
+    const sorted = [...lista].sort((a, b) => {
+      let resultado = 0;
+
+      switch (criterio) {
+        case 'fecha':
+          resultado = new Date(a.date) - new Date(b.date);
+          break;
+        case 'hora':
+          resultado = a.departureTime.localeCompare(b.departureTime);
+          break;
+        case 'origenDestino':
+          resultado = `${a.origin}-${a.destination}`.localeCompare(`${b.origin}-${b.destination}`);
+          break;
+        case 'tipoBus':
+          resultado = a.busTypeDescription.localeCompare(b.busTypeDescription);
+          break;
+        default:
+          resultado = 0;
+      }
+
+      return asc ? resultado : -resultado;
+    });
+
+    return sorted;
+  };
 
   const handleNuevoChange = (e) => {
     const { name, value } = e.target;
@@ -431,7 +324,12 @@ const Servicios = () => {
       console.error(error);
       showToast('Error', 'No se pudo guardar el servicio.', true);
     }
-  };  
+  };
+
+  const editarServicio = (servicio) => {
+    setServicioEditando({ ...servicio }); // Clonar para evitar mutación
+    setModalEditarVisible(true);
+  };
 
   const actualizarServicio = async () => {
     if (!validarCampos()) return;
@@ -470,7 +368,33 @@ const Servicios = () => {
       console.error(error);
       showToast('Error', 'No se pudo actualizar el servicio.', true);
     }
-  };  
+  };
+
+  const eliminarServicio = async (id) => {
+    const confirmar = window.confirm("¿Estás seguro de que deseas eliminar este servicio?");
+    if (!confirmar) return;
+
+    try {
+      const token =
+        sessionStorage.getItem("token") ||
+        JSON.parse(localStorage.getItem("recordarSession") || "{}").token;
+
+      const res = await fetch(`https://boletos.dev-wit.com/api/templates/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Error al eliminar servicio");
+
+      showToast("Éxito", "Servicio eliminado correctamente.");
+      setServicios(prev => prev.filter(s => s._id !== id));
+    } catch (error) {
+      console.error(error);
+      showToast("Error", "No se pudo eliminar el servicio.", true);
+    }
+  };
 
   const tiposDeBus = [
     {
@@ -519,7 +443,7 @@ const Servicios = () => {
     "Andesmar Chile",
     "Via Costa",
     "Expreso Norte"
-  ];   
+  ];
 
   return (
     <>
@@ -527,13 +451,14 @@ const Servicios = () => {
         <Sidebar activeItem="servicios" />
         <main className="main-content">
           <div className="header">
-            <h1 className="mb-0">Gestión de servicios</h1>
-            <p className="text-muted">Aquí puedes ver y programar nuevos servicios de bus</p>
+            <h1 className="mb-0">Gestión de servicios</h1> 
+            <p className="text-muted">Aquí puedes ver y programar nuevos servicios de bus</p>                       
           </div>
-
           <div className="stats-box">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h4 className="mb-0">Servicios programados por día</h4>
+              <h4 className="mb-0">
+                Servicios programados para mañana ({new Date(Date.now() + 86400000).toLocaleDateString('es-CL', { day: '2-digit', month: 'long' })})
+              </h4>
               <button
                 className="btn btn-primary btn-sm"
                 onClick={() => setModalNuevoVisible(true)}
@@ -552,216 +477,91 @@ const Servicios = () => {
               />
             </div>
 
-            {/* <div className="mb-3 d-flex align-items-center gap-3">
+            <div className="mb-3 d-flex align-items-center gap-3">
               <label className="form-label mb-0">Ordenar por:</label>
+
               <select
                 className="form-select form-select-sm"
-                style={{ maxWidth: "200px" }}
+                style={{ maxWidth: '200px' }}
                 value={orden}
-                onChange={(e) => handleChangeOrden(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setOrden(value);
+                  setServiciosFiltrados(ordenarServicios(serviciosFiltrados, value, ordenAscendente));
+                }}
               >
+                <option value="fecha">Fecha</option>
                 <option value="hora">Hora de Salida</option>
+                <option value="origenDestino">Origen/Destino</option>
                 <option value="tipoBus">Tipo de Bus</option>
               </select>
 
               <button
                 className="btn btn-outline-secondary btn-sm"
-                onClick={handleToggleOrden}
-                title={ordenAscendente ? "Orden ascendente" : "Orden descendente"}
+                onClick={() => {
+                  setOrdenAscendente(prev => !prev);
+                  setServiciosFiltrados(ordenarServicios(serviciosFiltrados, orden, !ordenAscendente));
+                }}
+                title={ordenAscendente ? 'Orden ascendente' : 'Orden descendente'}
               >
                 {ordenAscendente ? (
-                  <i className="bi bi-sort-down"></i>
+                  <i className="bi bi-sort-down"></i>  
                 ) : (
-                  <i className="bi bi-sort-up"></i>
+                  <i className="bi bi-sort-up"></i> 
                 )}
               </button>
-            </div> */}
-
-            <div className="mb-3 d-flex gap-3 align-items-end">
-              <div>
-                <label>Origen</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={origenSeleccionado}
-                  onChange={(e) => setOrigenSeleccionado(e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  {(destinoSeleccionado
-                    ? origenesDisponibles
-                    : origenesDestinos.map((o) => o.origen)
-                  ).map((origen) => (
-                    <option key={origen} value={origen}>{origen}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label>Destino</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={destinoSeleccionado}
-                  onChange={(e) => setDestinoSeleccionado(e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  {(origenSeleccionado
-                    ? destinosDisponibles
-                    : [...new Set(origenesDestinos.flatMap((o) => o.destinos))]
-                  ).map((destino) => (
-                    <option key={destino} value={destino}>{destino}</option>
-                  ))}
-                </select>
-              </div>
             </div>
-
 
             <Tabs
               activeKey={fechaSeleccionada}
-              onSelect={(fecha) => {
-                setFechaSeleccionada(fecha);
-                if (serviciosPorFecha[fecha]) {
-                  setServiciosFiltrados(ordenarServicios(
-                    serviciosPorFecha[fecha], 
-                    orden, 
-                    ordenAscendente
-                  ));
-                } else {
-                  setServiciosFiltrados([]);
-                }
-              }}
+              onSelect={(fecha) => setFechaSeleccionada(fecha)}
               className="mb-3"
             >
-              {/* Tab: Todos */}
-              <Tab eventKey="todos" title="Todos">
-                {serviciosFiltrados.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-bordered table-hover align-middle">
-                      <thead className="table-light">
-                        <tr>
-                          {/* <th>ID Servicio</th> */}
-                          <th>Origen → Destino</th>
-                          <th>Terminales</th>
-                          <th>Hora Salida</th>
-                          <th>Hora Llegada</th>
-                          <th>Fecha salida</th>
-                          <th>Fecha llegada</th>
-                          <th>Tipo de Bus</th>
-                          <th>Precios</th>
-                          <th>Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {serviciosFiltrados.map((servicio) => (
-                          <tr key={servicio._id}>
-                            {/* <td>{servicio._id}</td> */}
-                            <td>{servicio.origin} → {servicio.destination}</td>
-                            <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
-                            <td>{servicio.departureTime}</td>
-                            <td>{servicio.arrivalTime}</td>
-                            <td>{formatearFecha(servicio.date)}</td>
-                            <td>{formatearFecha(servicio.arrivalDate)}</td>
-                            <td>{servicio.busTypeDescription}</td>
-                            <td>
-                              1° piso: ${servicio.priceFirst}<br />
-                              2° piso: ${servicio.priceSecond}
-                            </td>
-                            <td>
-                              <button className="btn btn-sm btn-warning" onClick={() => handleEditar(servicio)}>
-                                <i className="bi bi-pencil-square"></i>
-                              </button>{' '}
-                              <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(servicio._id)}>
-                                <i className="bi bi-trash"></i>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-muted">No hay servicios que coincidan</p>
-                )}
-              </Tab>
-
-              {/* Tabs por fecha */}
-              {fechasTabs.map((fecha) => {
-                const [a, m, d] = fecha.split('-');
-                const fechaObj = new Date(Number(a), Number(m) - 1, Number(d));
-
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                const hoyStr = hoy.toLocaleDateString('sv-SE');
-
-                const ayer = new Date(hoy);
-                ayer.setDate(hoy.getDate() - 1);
-                const ayerStr = ayer.toLocaleDateString('sv-SE');
-
-                let titulo;
-                if (fecha === hoyStr) {
-                  titulo = 'Hoy';
-                } else if (fecha === ayerStr) {
-                  titulo = 'Ayer';
-                } else {
-                  const mesStr = fechaObj.toLocaleString('es-CL', { month: 'short' }).toLowerCase();
-                  titulo = `${d.padStart(2, '0')}-${mesStr}`;
-                }
-
-                return (
-                  <Tab eventKey={fecha} title={titulo} key={fecha}>
-                    {fecha === fechaSeleccionada ? (
-                      serviciosFiltrados.length > 0 ? (
-                        <div className="table-responsive">
-                          <table className="table table-bordered table-hover align-middle">
-                            <thead className="table-light">
-                              <tr>
-                                {/* <th>ID Servicio</th> */}
-                                <th>Origen → Destino</th>
-                                <th>Terminales</th>
-                                <th>Hora Salida</th>
-                                <th>Hora Llegada</th>
-                                <th>Fecha salida</th>
-                                <th>Fecha llegada</th>
-                                <th>Tipo de Bus</th>
-                                <th>Precios</th>
-                                <th>Acciones</th>
+              {Object.keys(serviciosPorFecha)
+                .sort()
+                .map((fecha) => (
+                  <Tab
+                    eventKey={fecha}
+                    title={new Date(fecha).toLocaleDateString("es-CL", {
+                      weekday: 'short',
+                      day: '2-digit',
+                      month: 'short',
+                    })}
+                    key={fecha}
+                  >
+                    {serviciosPorFecha[fecha].length > 0 ? (
+                      <div className="table-responsive">
+                        <table className="table table-bordered table-hover align-middle">
+                          {/* ...tu tabla aquí... */}
+                          <thead className="table-light">
+                            <tr>
+                              <th>ID Servicio</th>
+                              <th>Origen → Destino</th>
+                              <th>Terminales</th>
+                              <th>Salida / Llegada</th>
+                              <th>Fecha salida</th>
+                              <th>Fecha llegada</th>
+                              <th>Tipo de Bus</th>
+                              <th>Precios</th>
+                              <th>Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {serviciosPorFecha[fecha].map((servicio) => (
+                              <tr key={servicio._id}>
+                                {/* ...render de cada columna... */}
                               </tr>
-                            </thead>
-                            <tbody>
-                              {serviciosFiltrados.map((servicio) => (
-                                <tr key={servicio._id}>
-                                  {/* <td>{servicio._id}</td> */}
-                                  <td>{servicio.origin} → {servicio.destination}</td>
-                                  <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
-                                  <td>{servicio.departureTime}</td>
-                                  <td>{servicio.arrivalTime}</td>
-                                  <td>{formatearFecha(servicio.date)}</td>
-                                  <td>{formatearFecha(servicio.arrivalDate)}</td>
-                                  <td>{servicio.busTypeDescription}</td>
-                                  <td>
-                                    1° piso: ${servicio.priceFirst}<br />
-                                    2° piso: ${servicio.priceSecond}
-                                  </td>
-                                  <td>
-                                    <button className="btn btn-sm btn-warning" onClick={() => handleEditar(servicio)}>
-                                      <i className="bi bi-pencil-square"></i>
-                                    </button>{' '}
-                                    <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(servicio._id)}>
-                                      <i className="bi bi-trash"></i>
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="text-muted">No hay servicios para esta fecha</p>
-                      )
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     ) : (
-                      <p className="text-muted">Selecciona esta pestaña para ver los servicios</p>
+                      <p className="text-muted">No hay servicios para esta fecha</p>
                     )}
                   </Tab>
-                );
-              })}
+                ))}
             </Tabs>
+
           </div>
         </main>
       </div>
