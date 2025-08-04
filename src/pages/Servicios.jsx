@@ -107,7 +107,28 @@ const Servicios = () => {
     priceFirst: "Precio 1° Piso",
     priceSecond: "Precio 2° Piso",
   };
-  
+
+  useEffect(() => {
+    // Cuando cambia la fecha seleccionada, aplicar el filtro actual si existe
+    if (busqueda) {
+      const serviciosFecha = serviciosPorFecha[fechaSeleccionada] || [];
+      const filtrados = serviciosFecha.filter((s) => {
+        return (
+          s.origin.toLowerCase().includes(busqueda) ||
+          s.destination.toLowerCase().includes(busqueda) ||
+          s._id.toLowerCase().includes(busqueda) ||
+          s.terminalOrigin.toLowerCase().includes(busqueda) ||
+          s.terminalDestination.toLowerCase().includes(busqueda) ||
+          s.busTypeDescription.toLowerCase().includes(busqueda) ||
+          s.company.toLowerCase().includes(busqueda)
+        );
+      });
+      setServiciosFiltrados(filtrados);
+    } else {
+      // Si no hay filtro, mostrar todos los servicios de la fecha
+      setServiciosFiltrados(serviciosPorFecha[fechaSeleccionada] || []);
+    }
+  }, [fechaSeleccionada, serviciosPorFecha, busqueda]);  
 
   useEffect(() => {
     const fetchLayouts = async () => {
@@ -215,37 +236,27 @@ const Servicios = () => {
     }
   };
 
-  const abrirModal = (servicio) => {
-    setServicioSeleccionado(servicio);
-    setModalVisible(true);
-  };
-
-  const abrirModalEditar = (servicio) => {
-    setModoEdicion(true);
-    setServicioSeleccionado(servicio);
-    setNuevoServicio({
-      ...servicio,
-      startDate: servicio.date?.slice(0, 10),
-      arrivalDate: servicio.arrivalDate?.slice(0, 10),
-      time: servicio.departureTime,
-      arrivalTime: servicio.arrivalTime,
-      days: servicio.days || []
-    });
-    setModalNuevoVisible(true);
-  };
-
   const handleBuscar = (e) => {
     const texto = e.target.value.toLowerCase();
     setBusqueda(texto);
 
     if (!texto) {
-      setServiciosFiltrados(servicios);
+      // Si no hay texto de búsqueda, mostrar todos los servicios de la fecha seleccionada
+      setServiciosFiltrados(serviciosPorFecha[fechaSeleccionada] || []);
       return;
     }
 
-    const filtrados = todosLosServicios.filter((s) => {
-      return Object.values(s).some((valor) =>
-        String(valor).toLowerCase().includes(texto)
+    // Filtrar los servicios de la fecha seleccionada
+    const serviciosFecha = serviciosPorFecha[fechaSeleccionada] || [];
+    const filtrados = serviciosFecha.filter((s) => {
+      return (
+        s.origin.toLowerCase().includes(texto) ||
+        s.destination.toLowerCase().includes(texto) ||
+        s._id.toLowerCase().includes(texto) ||
+        s.terminalOrigin.toLowerCase().includes(texto) ||
+        s.terminalDestination.toLowerCase().includes(texto) ||
+        s.busTypeDescription.toLowerCase().includes(texto) ||
+        s.company.toLowerCase().includes(texto)
       );
     });
 
@@ -291,15 +302,7 @@ const Servicios = () => {
         : [...prev.days, day];
       return { ...prev, days };
     });
-  };
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setServicioEditando((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  };  
 
   const crearNuevoServicio = async () => {
     if (!validarCampos()) return;
@@ -385,33 +388,7 @@ const Servicios = () => {
       console.error(error);
       showToast('Error', 'No se pudo actualizar el servicio.', true);
     }
-  };
-
-  const eliminarServicio = async (id) => {
-    const confirmar = window.confirm("¿Estás seguro de que deseas eliminar este servicio?");
-    if (!confirmar) return;
-
-    try {
-      const token =
-        sessionStorage.getItem("token") ||
-        JSON.parse(localStorage.getItem("recordarSession") || "{}").token;
-
-      const res = await fetch(`https://boletos.dev-wit.com/api/templates/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error("Error al eliminar servicio");
-
-      showToast("Éxito", "Servicio eliminado correctamente.");
-      setServicios(prev => prev.filter(s => s._id !== id));
-    } catch (error) {
-      console.error(error);
-      showToast("Error", "No se pudo eliminar el servicio.", true);
-    }
-  };
+  };  
 
   const tiposDeBus = [
     {
@@ -483,12 +460,11 @@ const Servicios = () => {
 
     return fechas;
   };
-
-  // En tu useEffect o donde cargas los datos
+  
   useEffect(() => {
     const fechas = generarFechasTabs();
-    setFechasTabs(fechas); // asegúrate de definir este estado con useState
-  }, []);
+    setFechasTabs(fechas);
+  }, []);  
 
   return (
     <>
@@ -564,11 +540,10 @@ const Servicios = () => {
               activeKey={fechaSeleccionada}
               onSelect={(fecha) => {
                 setFechaSeleccionada(fecha);
-                const serviciosFecha = serviciosPorFecha[fecha] || [];
-                setServicios(serviciosFecha);
-                setServiciosFiltrados(
-                  ordenarServicios(serviciosFecha, orden, ordenAscendente)
-                );
+                // Resetear el filtrado cuando cambias de pestaña
+                if (!busqueda) {
+                  setServiciosFiltrados(serviciosPorFecha[fecha] || []);
+                }
               }}
               className="mb-3"
             >
@@ -582,7 +557,7 @@ const Servicios = () => {
                   })}
                   key={fecha}
                 >
-                  {serviciosPorFecha[fecha]?.length > 0 ? (
+                  {serviciosFiltrados.length > 0 ? (
                     <div className="table-responsive">
                       <table className="table table-bordered table-hover align-middle">
                         <thead className="table-light">
@@ -590,7 +565,7 @@ const Servicios = () => {
                             <th>ID Servicio</th>
                             <th>Origen → Destino</th>
                             <th>Terminales</th>
-                            <th>Salida / Llegada</th>
+                            <th>Hora Salida / Llegada</th>
                             <th>Fecha salida</th>
                             <th>Fecha llegada</th>
                             <th>Tipo de Bus</th>
@@ -599,7 +574,7 @@ const Servicios = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {serviciosPorFecha[fecha].map((servicio) => (
+                          {serviciosFiltrados.map((servicio) => (
                             <tr key={servicio._id}>
                               <td>{servicio._id}</td>
                               <td>
