@@ -470,7 +470,8 @@ const Servicios = () => {
                               <span className={`${esError ? 'text-danger fw-bold' : fechaLlegada.toDateString() !== fechaSalida.toDateString() ? 'text-warning fw-semibold' : ''}`}>
                                 {fechaLlegada.toLocaleDateString('es-CL', {
                                   day: '2-digit',
-                                  month: 'short'
+                                  month: 'short',
+                                  timeZone: 'UTC'
                                 })}
                                 {esError && <span title="La fecha de llegada es anterior a la de salida"> ❌</span>}
                                 {!esError && fechaLlegada.toDateString() !== fechaSalida.toDateString() && (
