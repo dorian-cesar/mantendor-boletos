@@ -6,6 +6,10 @@ import { showToast } from '@components/Toast/Toast';
 import { Tabs, Tab } from 'react-bootstrap';
 
 const Servicios = () => {
+  const formatearFecha = (fechaStr) => {
+    const [a, m, d] = fechaStr.split("-");
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${a}`;
+  };
   const [servicios, setServicios] = useState([]);
   const [serviciosFiltrados, setServiciosFiltrados] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -536,10 +540,9 @@ const Servicios = () => {
               className="mb-3"
             >
               {fechasTabs.map((fecha) => {
-                // Construcción local correcta
                 const [a, m, d] = fecha.split('-');
                 const fechaObj = new Date(Number(a), Number(m) - 1, Number(d));
-                
+
                 const hoy = new Date();
                 hoy.setHours(0, 0, 0, 0);
                 const hoyStr = hoy.toLocaleDateString('sv-SE');
@@ -548,14 +551,17 @@ const Servicios = () => {
                 ayer.setDate(hoy.getDate() - 1);
                 const ayerStr = ayer.toLocaleDateString('sv-SE');
 
+                const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
                 let titulo;
+
                 if (fecha === hoyStr) {
                   titulo = 'Hoy';
                 } else if (fecha === ayerStr) {
                   titulo = 'Ayer';
                 } else {
-                  const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-                  titulo = `${diasSemana[fechaObj.getDay()]}, ${d.padStart(2, '0')} ${fechaObj.toLocaleString('es-CL', { month: 'short' })}`;
+                  const mesStr = fechaObj.toLocaleString('es-CL', { month: 'short' }).toLowerCase();
+                  titulo = `${d.padStart(2, '0')}-${mesStr}`;
                 }
 
                 return (
@@ -587,8 +593,8 @@ const Servicios = () => {
                                 <td>{servicio.origin} → {servicio.destination}</td>
                                 <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
                                 <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
-                                <td>{servicio.date}</td>
-                                <td>{servicio.arrivalDate}</td>
+                                <td>{formatearFecha(servicio.date)}</td>
+                                <td>{formatearFecha(servicio.arrivalDate)}</td>
                                 <td>{servicio.busTypeDescription}</td>
                                 <td>
                                   1° piso: ${servicio.priceFirst}<br />
