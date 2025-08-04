@@ -460,26 +460,28 @@ const Servicios = () => {
                           })}
                         </td>
                         <td>
-                          {servicio.arrivalDate ? (() => {
-                            const fechaSalida = new Date(servicio.date);
-                            const fechaLlegada = new Date(servicio.arrivalDate);
-                            const diferencia = fechaLlegada.getTime() - fechaSalida.getTime();
-                            const esError = diferencia < 0;
+                          <td>
+                            {servicio.arrivalDate ? (() => {
+                              const fechaSalida = new Date(servicio.date);
+                              const fechaLlegada = new Date(servicio.arrivalDate);
+                              const diferencia = fechaLlegada.getTime() - fechaSalida.getTime();
+                              const esError = diferencia < 0;
 
-                            return (
-                              <span className={`${esError ? 'text-danger fw-bold' : fechaLlegada.toDateString() !== fechaSalida.toDateString() ? 'text-warning fw-semibold' : ''}`}>
-                                {fechaLlegada.toLocaleDateString('es-CL', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  timeZone: 'UTC'
-                                })}
-                                {esError && <span title="La fecha de llegada es anterior a la de salida"> ❌</span>}
-                                {!esError && fechaLlegada.toDateString() !== fechaSalida.toDateString() && (
-                                  <span title="Llega en día distinto al de salida"> ⚠️</span>
-                                )}
-                              </span>
-                            );
-                          })() : '—'}
+                              return (
+                                <span className={`${esError ? 'text-danger fw-bold' : fechaLlegada.toDateString() !== fechaSalida.toDateString() ? 'text-warning fw-semibold' : ''}`}>
+                                  {fechaLlegada.toLocaleDateString('es-CL', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    timeZone: 'UTC'
+                                  })}
+                                  {esError && <span title="La fecha de llegada es anterior a la de salida"> ❌</span>}
+                                  {!esError && fechaLlegada.toDateString() !== fechaSalida.toDateString() && (
+                                    <span title="Llega en día distinto al de salida"> ⚠️</span>
+                                  )}
+                                </span>
+                              );
+                            })() : '—'}
+                          </td>
                         </td>
                         <td>{servicio.busTypeDescription}</td>
                         <td>
