@@ -3,6 +3,7 @@ import Login from '@components/Login/Login';
 import Dashboard from '@components/Dashboard/Dashboard';
 import Usuarios from '@pages/Usuarios';
 import Servicios from '@pages/Servicios';
+import TiposServicio from '@pages/TiposServicio';
 import Ciudades from './pages/Ciudades';
 import Terminales from './pages/Terminales';
 import Companias from './pages/Companias';
@@ -18,6 +19,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/servicios" element={<Servicios />} />
+        <Route path="/tipos-servicio" element={<TiposServicio />} />
         <Route path="/ciudades" element={<Ciudades />} />
         <Route path="/terminales" element={<Terminales />} />
         <Route path="/companias" element={<Companias />} />

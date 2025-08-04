@@ -6,6 +6,7 @@ import { BusFront } from 'lucide-react';
 import { Building } from 'lucide-react';
 import { Building2 } from 'lucide-react';
 import { Factory } from 'lucide-react';
+import { ListChecks } from 'lucide-react';
 import { Landmark } from 'lucide-react';
 import { HouseDoor, People, CalendarCheck } from 'react-bootstrap-icons';
 import './Sidebar.css';
@@ -31,6 +32,9 @@ const Sidebar = ({ activeItem }) => {
       </Link>
       <Link to="/servicios" className={activeItem === 'servicios' ? 'active' : ''}>
         <CalendarCheck className="me-2" /> Servicios
+      </Link>
+      <Link to="/tipos-servicio" className={activeItem === 'tipos-servicio' ? 'active' : ''}>
+        <ListChecks className="me-2" size={18} /> Tipos de Servicio
       </Link>
       <Link to="/buses" className={activeItem === 'buses' ? 'active' : ''}>
           <BusFront className="me-2" /> Buses
