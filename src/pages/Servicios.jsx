@@ -145,8 +145,7 @@ const Servicios = () => {
   useEffect(() => {
     fetchServicios();
   }, []);
-
-  // Antes del return principal, dentro del componente
+  
   useEffect(() => {
     fetchServicios();
   }, [orden, ordenAscendente]);
@@ -181,9 +180,8 @@ const Servicios = () => {
   const fetchServicios = async () => {
     try {
       setCargando(true);
-      const token =
-        sessionStorage.getItem("token") ||
-        JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
+      const token = sessionStorage.getItem("token") || 
+                  JSON.parse(localStorage.getItem("recordarSession") || '{}').token;
 
       const res = await fetch('https://boletos.dev-wit.com/api/services/all', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -192,57 +190,68 @@ const Servicios = () => {
       if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
       const data = await res.json();
 
-      // Agrupar servicios por fecha
+      // Crear fecha de referencia (hoy a medianoche)
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      // Normalizar fechas de servicios y ajustar según fecha de referencia
+      const serviciosNormalizados = data.map(servicio => {
+        const fechaServicio = new Date(servicio.date);
+        const fechaNormalizada = fechaServicio.toLocaleDateString('sv-SE'); // sv-SE da formato YYYY-MM-DD con hora local
+        
+        return {
+          ...servicio,
+          fechaNormalizada,
+          // Asegurar que la fecha mostrada sea consistente
+          date: fechaNormalizada,
+          arrivalDate: new Date(servicio.arrivalDate).toISOString().split('T')[0]
+        };
+      });
+
+      // Agrupar servicios por fecha normalizada
       const agrupar = {};
-      data.forEach(servicio => {
-        const fecha = new Date(servicio.date).toISOString().split('T')[0];
+      serviciosNormalizados.forEach(servicio => {
+        const fecha = servicio.fechaNormalizada;
         if (!agrupar[fecha]) agrupar[fecha] = [];
         agrupar[fecha].push(servicio);
       });
 
-      // Ordenar por hora cada grupo
-      Object.keys(agrupar).forEach((fecha) => {
-        agrupar[fecha].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
-      });
+      // Generar fechas para los tabs (ayer, hoy y próximos 6 días)
+      const fechasTabs = [];
+      
+      // Ayer
+      const ayer = new Date(hoy);
+      ayer.setDate(hoy.getDate() - 1);
+      fechasTabs.push(ayer.toLocaleDateString('sv-SE'));
 
-      // Fechas base
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      const fechas = [];
-
-      // Día anterior
-      const diaAnterior = new Date(hoy);
-      diaAnterior.setDate(diaAnterior.getDate() - 1);
-      fechas.push(diaAnterior.toISOString().split('T')[0]);
-
-      // Día actual
-      fechas.push(hoy.toISOString().split('T')[0]);
+      // Hoy
+      fechasTabs.push(hoy.toLocaleDateString('sv-SE'));
 
       // 6 días siguientes
       for (let i = 1; i <= 6; i++) {
         const dia = new Date(hoy);
         dia.setDate(hoy.getDate() + i);
-        fechas.push(dia.toISOString().split('T')[0]);
+        fechasTabs.push(dia.toLocaleDateString('sv-SE'));
       }
 
-      setTodosLosServicios(data);
+      setTodosLosServicios(serviciosNormalizados);
       setServiciosPorFecha(agrupar);
-      setFechasTabs(fechas);
+      setFechasTabs(fechasTabs);
 
-      // Solo establecer fecha por defecto si no hay una seleccionada
+      // Establecer fecha seleccionada por defecto (hoy)
       if (!fechaSeleccionada) {
-        const fechaManana = new Date(hoy);
-        fechaManana.setDate(hoy.getDate() + 1);
-        const fechaMananaStr = fechaManana.toISOString().split('T')[0];
-        const defaultFecha = fechas.includes(fechaMananaStr) ? fechaMananaStr : hoy.toISOString().split('T')[0];
-        setFechaSeleccionada(defaultFecha);
+        setFechaSeleccionada(hoy.toISOString().split('T')[0]);
       }
 
-      // Actualizar servicios filtrados para la fecha seleccionada actual
-      if (fechaSeleccionada && agrupar[fechaSeleccionada]) {
-        const serviciosFecha = agrupar[fechaSeleccionada];
-        setServiciosFiltrados(ordenarServicios(serviciosFecha, orden, ordenAscendente));
+      // Actualizar servicios filtrados
+      if (agrupar[hoy.toISOString().split('T')[0]]) {
+        setServiciosFiltrados(ordenarServicios(
+          agrupar[hoy.toISOString().split('T')[0]], 
+          orden, 
+          ordenAscendente
+        ));
       }
+
     } catch (error) {
       console.error('Error al cargar servicios:', error);
       showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -449,34 +458,7 @@ const Servicios = () => {
     "Andesmar Chile",
     "Via Costa",
     "Expreso Norte"
-  ];  
-
-  const generarFechasTabs = () => {
-    const hoy = new Date();
-    const fechas = [];
-
-    // Ayer
-    const ayer = new Date(hoy);
-    ayer.setDate(hoy.getDate() - 1);
-    fechas.push(ayer.toISOString().split('T')[0]);
-
-    // Hoy
-    fechas.push(hoy.toISOString().split('T')[0]);
-
-    // Próximos 6 días
-    for (let i = 1; i <= 6; i++) {
-      const fecha = new Date(hoy);
-      fecha.setDate(hoy.getDate() + i);
-      fechas.push(fecha.toISOString().split('T')[0]);
-    }
-
-    return fechas;
-  };
-  
-  useEffect(() => {
-    const fechas = generarFechasTabs();
-    setFechasTabs(fechas);
-  }, []);  
+  ];   
 
   return (
     <>
@@ -539,84 +521,98 @@ const Servicios = () => {
 
             <Tabs
               activeKey={fechaSeleccionada}
-              onSelect={(fecha) => setFechaSeleccionada(fecha)}
+              onSelect={(fecha) => {
+                setFechaSeleccionada(fecha);
+                if (serviciosPorFecha[fecha]) {
+                  setServiciosFiltrados(ordenarServicios(
+                    serviciosPorFecha[fecha], 
+                    orden, 
+                    ordenAscendente
+                  ));
+                } else {
+                  setServiciosFiltrados([]);
+                }
+              }}
               className="mb-3"
             >
-              {fechasTabs.map((fecha) => (
-                <Tab
-                  eventKey={fecha}
-                  title={new Date(fecha).toLocaleDateString("es-CL", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "short",
-                  })}
-                  key={fecha}
-                >
-                  {serviciosFiltrados.length > 0 ? (
-                    <div className="table-responsive">
-                      <table className="table table-bordered table-hover align-middle">
-                        <thead className="table-light">
-                          <tr>
-                            <th>ID Servicio</th>
-                            <th>Origen → Destino</th>
-                            <th>Terminales</th>
-                            <th>Hora Salida / Llegada</th>
-                            <th>Fecha salida</th>
-                            <th>Fecha llegada</th>
-                            <th>Tipo de Bus</th>
-                            <th>Precios</th>
-                            <th>Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {serviciosFiltrados.map((servicio) => (
-                            <tr key={servicio._id}>
-                              <td>{servicio._id}</td>
-                              <td>
-                                {servicio.origin} → {servicio.destination}
-                              </td>
-                              <td>
-                                {servicio.terminalOrigin} / {servicio.terminalDestination}
-                              </td>
-                              <td>
-                                {servicio.departureTime} - {servicio.arrivalTime}
-                              </td>
-                              <td>
-                                {new Date(servicio.date).toLocaleDateString("es-CL")}
-                              </td>
-                              <td>
-                                {new Date(servicio.arrivalDate).toLocaleDateString("es-CL")}
-                              </td>
-                              <td>{servicio.busTypeDescription}</td>
-                              <td>
-                                1° piso: ${servicio.priceFirst}
-                                <br />
-                                2° piso: ${servicio.priceSecond}
-                              </td>
-                              <td>
-                                <button
-                                  className="btn btn-sm btn-warning"
-                                  onClick={() => handleEditar(servicio)}
-                                >
-                                  <i className="bi bi-pencil-square"></i>
-                                </button>{" "}
-                                <button
-                                  className="btn btn-sm btn-danger"
-                                  onClick={() => handleEliminar(servicio._id)}
-                                >
-                                  <i className="bi bi-trash"></i>
-                                </button>
-                              </td>
+              {fechasTabs.map((fecha) => {
+                // Construcción local correcta
+                const [a, m, d] = fecha.split('-');
+                const fechaObj = new Date(Number(a), Number(m) - 1, Number(d));
+                
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                const hoyStr = hoy.toLocaleDateString('sv-SE');
+
+                const ayer = new Date(hoy);
+                ayer.setDate(hoy.getDate() - 1);
+                const ayerStr = ayer.toLocaleDateString('sv-SE');
+
+                let titulo;
+                if (fecha === hoyStr) {
+                  titulo = 'Hoy';
+                } else if (fecha === ayerStr) {
+                  titulo = 'Ayer';
+                } else {
+                  const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+                  titulo = `${diasSemana[fechaObj.getDay()]}, ${d.padStart(2, '0')} ${fechaObj.toLocaleString('es-CL', { month: 'short' })}`;
+                }
+
+                return (
+                  <Tab
+                    eventKey={fecha}
+                    title={titulo}
+                    key={fecha}
+                  >
+                    {serviciosFiltrados.length > 0 ? (
+                      <div className="table-responsive">
+                        <table className="table table-bordered table-hover align-middle">
+                          <thead className="table-light">
+                            <tr>
+                              <th>ID Servicio</th>
+                              <th>Origen → Destino</th>
+                              <th>Terminales</th>
+                              <th>Hora Salida / Llegada</th>
+                              <th>Fecha salida</th>
+                              <th>Fecha llegada</th>
+                              <th>Tipo de Bus</th>
+                              <th>Precios</th>
+                              <th>Acciones</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted">No hay servicios para esta fecha</p>
-                  )}
-                </Tab>
-              ))}
+                          </thead>
+                          <tbody>
+                            {serviciosFiltrados.map((servicio) => (
+                              <tr key={servicio._id}>
+                                <td>{servicio._id}</td>
+                                <td>{servicio.origin} → {servicio.destination}</td>
+                                <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
+                                <td>{servicio.departureTime} - {servicio.arrivalTime}</td>
+                                <td>{servicio.date}</td>
+                                <td>{servicio.arrivalDate}</td>
+                                <td>{servicio.busTypeDescription}</td>
+                                <td>
+                                  1° piso: ${servicio.priceFirst}<br />
+                                  2° piso: ${servicio.priceSecond}
+                                </td>
+                                <td>
+                                  <button className="btn btn-sm btn-warning" onClick={() => handleEditar(servicio)}>
+                                    <i className="bi bi-pencil-square"></i>
+                                  </button>{' '}
+                                  <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(servicio._id)}>
+                                    <i className="bi bi-trash"></i>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-muted">No hay servicios para esta fecha</p>
+                    )}
+                  </Tab>
+                );
+              })}
             </Tabs>
           </div>
         </main>
