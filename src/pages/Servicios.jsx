@@ -636,7 +636,7 @@ const Servicios = () => {
                     <table className="table table-bordered table-hover align-middle">
                       <thead className="table-light">
                         <tr>
-                          <th>ID Servicio</th>
+                          {/* <th>ID Servicio</th> */}
                           <th>Origen → Destino</th>
                           <th>Terminales</th>
                           <th>Hora Salida</th>
@@ -651,7 +651,7 @@ const Servicios = () => {
                       <tbody>
                         {serviciosFiltrados.map((servicio) => (
                           <tr key={servicio._id}>
-                            <td>{servicio._id}</td>
+                            {/* <td>{servicio._id}</td> */}
                             <td>{servicio.origin} → {servicio.destination}</td>
                             <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
                             <td>{servicio.departureTime}</td>
@@ -712,7 +712,7 @@ const Servicios = () => {
                           <table className="table table-bordered table-hover align-middle">
                             <thead className="table-light">
                               <tr>
-                                <th>ID Servicio</th>
+                                {/* <th>ID Servicio</th> */}
                                 <th>Origen → Destino</th>
                                 <th>Terminales</th>
                                 <th>Hora Salida</th>
@@ -727,7 +727,7 @@ const Servicios = () => {
                             <tbody>
                               {serviciosFiltrados.map((servicio) => (
                                 <tr key={servicio._id}>
-                                  <td>{servicio._id}</td>
+                                  {/* <td>{servicio._id}</td> */}
                                   <td>{servicio.origin} → {servicio.destination}</td>
                                   <td>{servicio.terminalOrigin} / {servicio.terminalDestination}</td>
                                   <td>{servicio.departureTime}</td>
