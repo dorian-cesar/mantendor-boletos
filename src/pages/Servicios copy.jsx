@@ -44,8 +44,6 @@ const Servicios = () => {
   const [ordenAscendente, setOrdenAscendente] = useState(true);
   const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
   const [serviciosPorFecha, setServiciosPorFecha] = useState({});   
-  const [fechasTabs, setFechasTabs] = useState([]);
-
 
   const validarCampos = () => {
     const camposRequeridos = [
@@ -154,47 +152,49 @@ const Servicios = () => {
       if (!res.ok) throw new Error('No se pudieron obtener los servicios.');
       const data = await res.json();
 
-      // Formateador simple yyyy-mm-dd
-      const formatoFecha = (fecha) => new Date(fecha).toISOString().split('T')[0];
+      const formatoFecha = (fecha) => {
+        return new Date(fecha).toISOString().split('T')[0];
+      };
 
-      // Fechas clave
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-
-      const ayer = new Date(hoy);
-      ayer.setDate(hoy.getDate() - 1);
-      const ayerStr = formatoFecha(ayer);
-
-      const manana = new Date(hoy);
-      manana.setDate(hoy.getDate() + 1);
-      const mananaStr = formatoFecha(manana);
-
-      const pasado = new Date(hoy);
-      pasado.setDate(hoy.getDate() + 2);
-      const pasadoStr = formatoFecha(pasado);
-
-      // Agrupar servicios por fecha
+      // Agrupar por fecha
       const agrupados = {};
       data.forEach(servicio => {
-        const fecha = formatoFecha(servicio.date);
+        const fecha = new Date(servicio.date).toISOString().split('T')[0];
         if (!agrupados[fecha]) agrupados[fecha] = [];
         agrupados[fecha].push(servicio);
       });
 
-      // Ordenar por hora cada grupo
-      Object.keys(agrupados).forEach(fecha => {
+      // Ordenar cada grupo por hora
+      Object.keys(agrupados).forEach((fecha) => {
         agrupados[fecha].sort((a, b) => a.departureTime.localeCompare(b.departureTime));
       });
 
-      // Tabs visibles
-      const fechasVisibles = [ayerStr, mananaStr, pasadoStr].filter(f => agrupados[f]);
+      // Ordenar fechas
+      const fechasOrdenadas = Object.keys(agrupados).sort();
 
+      // Detectar mañana
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechaManana = new Date();
+      fechaManana.setDate(fechaManana.getDate() + 1);
+      const fechaMananaStr = formatoFecha(fechaManana);
+
+      if (agrupados[fechaMananaStr]) {
+        setFechaSeleccionada(fechaMananaStr);
+      } else {
+        const fechasOrdenadas = Object.keys(agrupados).sort((a, b) => new Date(a) - new Date(b));
+        setFechaSeleccionada(fechasOrdenadas[0] || '');
+      }
+
+      const seleccion = fechasOrdenadas.find(f => f >= fechaMananaStr) || fechasOrdenadas[0];
+
+      // Guardar estado
       setTodosLosServicios(data);
       setServiciosPorFecha(agrupados);
-      setFechasTabs(fechasVisibles);  // <-- debes tener este estado: const [fechasTabs, setFechasTabs] = useState([]);
-      setFechaSeleccionada(mananaStr); // Mostrar mañana por defecto
-      setServicios(agrupados[mananaStr] || []);
-      setServiciosFiltrados(ordenarServicios(agrupados[mananaStr] || [], orden, ordenAscendente));
+      setFechaSeleccionada(seleccion);
+
+      setServicios(agrupados[seleccion] || []);
+      setServiciosFiltrados(ordenarServicios(agrupados[seleccion] || [], orden, ordenAscendente));
     } catch (error) {
       console.error('Error al cargar servicios:', error);
       showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -244,7 +244,10 @@ const Servicios = () => {
     const sorted = [...lista].sort((a, b) => {
       let resultado = 0;
 
-      switch (criterio) {        
+      switch (criterio) {
+        case 'fecha':
+          resultado = new Date(a.date) - new Date(b.date);
+          break;
         case 'hora':
           resultado = a.departureTime.localeCompare(b.departureTime);
           break;
@@ -279,15 +282,7 @@ const Servicios = () => {
         : [...prev.days, day];
       return { ...prev, days };
     });
-  };
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setServicioEditando((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  };  
 
   const crearNuevoServicio = async () => {
     if (!validarCampos()) return;
@@ -456,19 +451,13 @@ const Servicios = () => {
         <Sidebar activeItem="servicios" />
         <main className="main-content">
           <div className="header">
-            <h1 className="mb-0">Gestión de servicios</h1>
-            <p className="text-muted">Aquí puedes ver y programar nuevos servicios de bus</p>
+            <h1 className="mb-0">Gestión de servicios</h1> 
+            <p className="text-muted">Aquí puedes ver y programar nuevos servicios de bus</p>                       
           </div>
-
           <div className="stats-box">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h4 className="mb-0">
-                Servicios programados para mañana (
-                {new Date(Date.now() + 86400000).toLocaleDateString("es-CL", {
-                  day: "2-digit",
-                  month: "long",
-                })}
-                )
+                Servicios programados para mañana ({new Date(Date.now() + 86400000).toLocaleDateString('es-CL', { day: '2-digit', month: 'long' })})
               </h4>
               <button
                 className="btn btn-primary btn-sm"
@@ -490,18 +479,18 @@ const Servicios = () => {
 
             <div className="mb-3 d-flex align-items-center gap-3">
               <label className="form-label mb-0">Ordenar por:</label>
+
               <select
                 className="form-select form-select-sm"
-                style={{ maxWidth: "200px" }}
+                style={{ maxWidth: '200px' }}
                 value={orden}
                 onChange={(e) => {
                   const value = e.target.value;
                   setOrden(value);
-                  setServiciosFiltrados(
-                    ordenarServicios(serviciosFiltrados, value, ordenAscendente)
-                  );
+                  setServiciosFiltrados(ordenarServicios(serviciosFiltrados, value, ordenAscendente));
                 }}
-              >               
+              >
+                <option value="fecha">Fecha</option>
                 <option value="hora">Hora de Salida</option>
                 <option value="origenDestino">Origen/Destino</option>
                 <option value="tipoBus">Tipo de Bus</option>
@@ -510,109 +499,69 @@ const Servicios = () => {
               <button
                 className="btn btn-outline-secondary btn-sm"
                 onClick={() => {
-                  setOrdenAscendente((prev) => !prev);
-                  setServiciosFiltrados(
-                    ordenarServicios(serviciosFiltrados, orden, !ordenAscendente)
-                  );
+                  setOrdenAscendente(prev => !prev);
+                  setServiciosFiltrados(ordenarServicios(serviciosFiltrados, orden, !ordenAscendente));
                 }}
-                title={ordenAscendente ? "Orden ascendente" : "Orden descendente"}
+                title={ordenAscendente ? 'Orden ascendente' : 'Orden descendente'}
               >
                 {ordenAscendente ? (
-                  <i className="bi bi-sort-down"></i>
+                  <i className="bi bi-sort-down"></i>  
                 ) : (
-                  <i className="bi bi-sort-up"></i>
+                  <i className="bi bi-sort-up"></i> 
                 )}
               </button>
             </div>
 
             <Tabs
               activeKey={fechaSeleccionada}
-              onSelect={(fecha) => {
-                setFechaSeleccionada(fecha);
-                const serviciosFecha = serviciosPorFecha[fecha] || [];
-                setServicios(serviciosFecha);
-                setServiciosFiltrados(
-                  ordenarServicios(serviciosFecha, orden, ordenAscendente)
-                );
-              }}
+              onSelect={(fecha) => setFechaSeleccionada(fecha)}
               className="mb-3"
             >
-              {fechasTabs.map((fecha) => (
-                <Tab
-                  eventKey={fecha}
-                  title={new Date(fecha).toLocaleDateString("es-CL", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "short",
-                  })}
-                  key={fecha}
-                >
-                  {serviciosPorFecha[fecha]?.length > 0 ? (
-                    <div className="table-responsive">
-                      <table className="table table-bordered table-hover align-middle">
-                        <thead className="table-light">
-                          <tr>
-                            <th>ID Servicio</th>
-                            <th>Origen → Destino</th>
-                            <th>Terminales</th>
-                            <th>Salida / Llegada</th>
-                            <th>Fecha salida</th>
-                            <th>Fecha llegada</th>
-                            <th>Tipo de Bus</th>
-                            <th>Precios</th>
-                            <th>Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {serviciosPorFecha[fecha].map((servicio) => (
-                            <tr key={servicio._id}>
-                              <td>{servicio._id}</td>
-                              <td>
-                                {servicio.origin} → {servicio.destination}
-                              </td>
-                              <td>
-                                {servicio.terminalOrigin} / {servicio.terminalDestination}
-                              </td>
-                              <td>
-                                {servicio.departureTime} - {servicio.arrivalTime}
-                              </td>
-                              <td>
-                                {new Date(servicio.date).toLocaleDateString("es-CL")}
-                              </td>
-                              <td>
-                                {new Date(servicio.arrivalDate).toLocaleDateString("es-CL")}
-                              </td>
-                              <td>{servicio.busTypeDescription}</td>
-                              <td>
-                                1° piso: ${servicio.priceFirst}
-                                <br />
-                                2° piso: ${servicio.priceSecond}
-                              </td>
-                              <td>
-                                <button
-                                  className="btn btn-sm btn-warning"
-                                  onClick={() => handleEditar(servicio)}
-                                >
-                                  <i className="bi bi-pencil-square"></i>
-                                </button>{" "}
-                                <button
-                                  className="btn btn-sm btn-danger"
-                                  onClick={() => handleEliminar(servicio._id)}
-                                >
-                                  <i className="bi bi-trash"></i>
-                                </button>
-                              </td>
+              {Object.keys(serviciosPorFecha)
+                .sort()
+                .map((fecha) => (
+                  <Tab
+                    eventKey={fecha}
+                    title={new Date(fecha).toLocaleDateString("es-CL", {
+                      weekday: 'short',
+                      day: '2-digit',
+                      month: 'short',
+                    })}
+                    key={fecha}
+                  >
+                    {serviciosPorFecha[fecha].length > 0 ? (
+                      <div className="table-responsive">
+                        <table className="table table-bordered table-hover align-middle">
+                          {/* ...tu tabla aquí... */}
+                          <thead className="table-light">
+                            <tr>
+                              <th>ID Servicio</th>
+                              <th>Origen → Destino</th>
+                              <th>Terminales</th>
+                              <th>Salida / Llegada</th>
+                              <th>Fecha salida</th>
+                              <th>Fecha llegada</th>
+                              <th>Tipo de Bus</th>
+                              <th>Precios</th>
+                              <th>Acciones</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted">No hay servicios para esta fecha</p>
-                  )}
-                </Tab>
-              ))}
+                          </thead>
+                          <tbody>
+                            {serviciosPorFecha[fecha].map((servicio) => (
+                              <tr key={servicio._id}>
+                                {/* ...render de cada columna... */}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-muted">No hay servicios para esta fecha</p>
+                    )}
+                  </Tab>
+                ))}
             </Tabs>
+
           </div>
         </main>
       </div>
