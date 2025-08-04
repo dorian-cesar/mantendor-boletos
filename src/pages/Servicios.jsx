@@ -39,6 +39,8 @@ const Servicios = () => {
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [servicioEditando, setServicioEditando] = useState(null);
   const [editandoServicioId, setEditandoServicioId] = useState(null);
+  const [orden, setOrden] = useState('fecha');
+  const [ordenAscendente, setOrdenAscendente] = useState(true);
 
   const validarCampos = () => {
     const camposRequeridos = [
@@ -158,7 +160,7 @@ const Servicios = () => {
 
       setTodosLosServicios(data);
       setServicios(serviciosManana);
-      setServiciosFiltrados(serviciosManana);
+      setServiciosFiltrados(ordenarServicios(serviciosManana, orden, ordenAscendente));
     } catch (error) {
       console.error('Error al cargar servicios:', error);
       showToast('Error', 'No se pudieron cargar los servicios.', true);
@@ -202,6 +204,33 @@ const Servicios = () => {
     });
 
     setServiciosFiltrados(filtrados);
+  };
+
+  const ordenarServicios = (lista, criterio, asc = true) => {
+    const sorted = [...lista].sort((a, b) => {
+      let resultado = 0;
+
+      switch (criterio) {
+        case 'fecha':
+          resultado = new Date(a.date) - new Date(b.date);
+          break;
+        case 'hora':
+          resultado = a.departureTime.localeCompare(b.departureTime);
+          break;
+        case 'origenDestino':
+          resultado = `${a.origin}-${a.destination}`.localeCompare(`${b.origin}-${b.destination}`);
+          break;
+        case 'tipoBus':
+          resultado = a.busTypeDescription.localeCompare(b.busTypeDescription);
+          break;
+        default:
+          resultado = 0;
+      }
+
+      return asc ? resultado : -resultado;
+    });
+
+    return sorted;
   };
 
   const handleNuevoChange = (e) => {
@@ -420,6 +449,41 @@ const Servicios = () => {
                 value={busqueda}
                 onChange={handleBuscar}
               />
+            </div>
+
+            <div className="mb-3 d-flex align-items-center gap-3">
+              <label className="form-label mb-0">Ordenar por:</label>
+
+              <select
+                className="form-select form-select-sm"
+                style={{ maxWidth: '200px' }}
+                value={orden}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setOrden(value);
+                  setServiciosFiltrados(ordenarServicios(serviciosFiltrados, value, ordenAscendente));
+                }}
+              >
+                <option value="fecha">Fecha</option>
+                <option value="hora">Hora de Salida</option>
+                <option value="origenDestino">Origen/Destino</option>
+                <option value="tipoBus">Tipo de Bus</option>
+              </select>
+
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => {
+                  setOrdenAscendente(prev => !prev);
+                  setServiciosFiltrados(ordenarServicios(serviciosFiltrados, orden, !ordenAscendente));
+                }}
+                title={ordenAscendente ? 'Orden ascendente' : 'Orden descendente'}
+              >
+                {ordenAscendente ? (
+                  <i className="bi bi-sort-down"></i>  
+                ) : (
+                  <i className="bi bi-sort-up"></i> 
+                )}
+              </button>
             </div>
 
             <div className="table-responsive">
