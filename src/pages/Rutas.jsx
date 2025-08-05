@@ -9,18 +9,35 @@ const Rutas = () => {
   const [cargando, setCargando] = useState(true);   
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [rutaEditando, setRutaEditando] = useState(null);
-  const [formRuta, setFormRuta] = useState({ name: '', description: '' });
+  const [formRuta, setFormRuta] = useState({ name: '', origin: '', destination: '', stops: [] });
 
   const handleEditar = (ruta) => {
     setRutaEditando(ruta._id);
-    setFormRuta({ name: ruta.name, description: ruta.description });
+    setFormRuta({
+      name: ruta.name,
+      origin: ruta.origin,
+      destination: ruta.destination,
+      stops: ruta.stops || [],
+    });
     setModalEditarVisible(true);
   };
 
   const handleGuardar = async () => {
+    const stopsConOrden = formRuta.stops.map((s, i) => ({
+      city: s.city,
+      order: i + 1
+    }));
+
+    const dataAGuardar = {
+      name: formRuta.name,
+      origin: formRuta.origin,
+      destination: formRuta.destination,
+      stops: stopsConOrden,
+    };
+
     const endpoint = rutaEditando
-      ? `https://boletos.dev-wit.com/api/rutas/${rutaEditando}`
-      : `https://boletos.dev-wit.com/api/rutas/`;
+      ? `https://boletos.dev-wit.com/api/routes/${rutaEditando}`
+      : `https://boletos.dev-wit.com/api/routes/`;
 
     const metodo = rutaEditando ? 'PUT' : 'POST';
 
@@ -28,7 +45,7 @@ const Rutas = () => {
       const res = await fetch(endpoint, {
         method: metodo,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formRuta),
+        body: JSON.stringify(dataAGuardar),
       });
 
       if (!res.ok) throw new Error('Error al guardar ruta de servicio');
@@ -55,7 +72,7 @@ const Rutas = () => {
     if (!window.confirm('¿Estás seguro de eliminar esta ruta?')) return;
 
     try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/rutas/${id}`, {
+      const res = await fetch(`https://boletos.dev-wit.com/api/routes/${id}`, {
         method: 'DELETE',
       });
 
@@ -70,7 +87,7 @@ const Rutas = () => {
   useEffect(() => {
     const fetchRutas = async () => {
       try {
-        const res = await fetch('https://boletos.dev-wit.com/api/rutas/');
+        const res = await fetch('https://boletos.dev-wit.com/api/routes/');
         const data = await res.json();
         setRutas(data);
       } catch (error) {
@@ -99,7 +116,7 @@ const Rutas = () => {
               className="btn btn-primary btn-sm"
               onClick={() => {
                 setRutaEditando(null);
-                setFormRuta({ name: '', description: '' });
+                setFormRuta({ name: '', origin: '' , destination: ''});
                 setModalEditarVisible(true);
               }}
             >
@@ -118,7 +135,8 @@ const Rutas = () => {
                 <thead className="table-light">
                   <tr>                    
                     <th>Nombre</th>
-                    <th>Descripción</th>
+                    <th>Origen</th>
+                    <th>Destino</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -126,7 +144,8 @@ const Rutas = () => {
                   {rutas.map((ruta) => (
                     <tr key={ruta._id}>                      
                       <td>{ruta.name}</td>
-                      <td>{ruta.description}</td>
+                      <td>{ruta.origin}</td>
+                      <td>{ruta.destination}</td>
                       <td>
                         <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(ruta)}>
                           <i className="bi bi-pencil-square"></i>
@@ -147,7 +166,7 @@ const Rutas = () => {
       {/* MODAL DE EDICIÓN */}
       <ModalBase
         visible={modalEditarVisible}
-        title="Editar Ruta de Servicio"
+        title={rutaEditando ? "Editar Ruta de Servicio" : "Nueva Ruta de Servicio"}
         onClose={() => {
           setModalEditarVisible(false);
           setRutaEditando(null);
@@ -171,13 +190,67 @@ const Rutas = () => {
             onChange={(e) => setFormRuta((prev) => ({ ...prev, name: e.target.value }))}
           />
         </div>
+
         <div className="mb-3">
-          <label className="form-label">Descripción</label>
-          <textarea
+          <label className="form-label">Origen</label>
+          <input
             className="form-control"
-            value={formRuta.description}
-            onChange={(e) => setFormRuta((prev) => ({ ...prev, description: e.target.value }))}
+            value={formRuta.origin}
+            onChange={(e) => setFormRuta((prev) => ({ ...prev, origin: e.target.value }))}
           />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label">Destino</label>
+          <input
+            className="form-control"
+            value={formRuta.destination}
+            onChange={(e) => setFormRuta((prev) => ({ ...prev, destination: e.target.value }))}
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label">Paradas intermedias</label>
+          {formRuta.stops.length === 0 && (
+            <div className="text-muted small mb-2">No hay paradas intermedias definidas</div>
+          )}
+
+          {formRuta.stops.map((stop, idx) => (
+            <div className="d-flex mb-2 gap-2 align-items-center" key={idx}>
+              <input
+                className="form-control"
+                placeholder={`Ciudad #${idx + 1}`}
+                value={stop.city}
+                onChange={(e) => {
+                  const nuevasStops = [...formRuta.stops];
+                  nuevasStops[idx].city = e.target.value;
+                  setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-sm btn-danger"
+                onClick={() => {
+                  const nuevasStops = formRuta.stops.filter((_, i) => i !== idx);
+                  const reordenadas = nuevasStops.map((s, i) => ({ ...s, order: i + 1 }));
+                  setFormRuta((prev) => ({ ...prev, stops: reordenadas }));
+                }}
+              >
+                <i className="bi bi-trash"></i>
+              </button>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            className="btn btn-outline-primary btn-sm mt-2"
+            onClick={() => {
+              const nuevasStops = [...formRuta.stops, { city: '', order: formRuta.stops.length + 1 }];
+              setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
+            }}
+          >
+            <i className="bi bi-plus"></i> Agregar parada
+          </button>
         </div>
       </ModalBase>
     </div>
