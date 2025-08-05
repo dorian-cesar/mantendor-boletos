@@ -3,6 +3,14 @@ import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
+import RutaEditor from '@components/RutaEditor/RutaEditor';
+
+import {
+  DragDropContext,
+  Droppable,
+  Draggable
+} from 'react-beautiful-dnd';
+
 
 const Rutas = () => {
   const [rutas, setRutas] = useState([]);
@@ -178,7 +186,6 @@ const Rutas = () => {
         </div>
       </main>
 
-      {/* MODAL DE EDICIÓN */}
       <ModalBase
         visible={modalEditarVisible}
         title={rutaEditando ? "Editar Ruta de Servicio" : "Nueva Ruta de Servicio"}
@@ -197,80 +204,11 @@ const Rutas = () => {
           </>
         }
       >
-        <div className="mb-3">
-          <label className="form-label">Nombre</label>
-          <input
-            className="form-control"
-            value={formRuta.name}
-            onChange={(e) => setFormRuta((prev) => ({ ...prev, name: e.target.value }))}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label">Origen</label>
-          <input
-            className="form-control"
-            value={formRuta.origin}
-            onChange={(e) => setFormRuta((prev) => ({ ...prev, origin: e.target.value }))}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label">Destino</label>
-          <input
-            className="form-control"
-            value={formRuta.destination}
-            onChange={(e) => setFormRuta((prev) => ({ ...prev, destination: e.target.value }))}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label">Paradas intermedias</label>
-          {formRuta.stops.length === 0 && (
-            <div className="text-muted small mb-2">No hay paradas intermedias definidas</div>
-          )}
-
-          {formRuta.stops.map((stop, idx) => (
-            <div className="d-flex mb-2 gap-2 align-items-center" key={idx}>
-              <select
-                className="form-select"
-                value={stop.city}
-                onChange={(e) => {
-                  const nuevasStops = [...formRuta.stops];
-                  nuevasStops[idx].city = e.target.value;
-                  setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
-                }}
-              >
-                <option value="">Selecciona ciudad</option>
-                {ciudades.map((c) => (
-                  <option key={c._id} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="btn btn-sm btn-danger"
-                onClick={() => {
-                  const nuevasStops = formRuta.stops.filter((_, i) => i !== idx);
-                  const reordenadas = nuevasStops.map((s, i) => ({ ...s, order: i + 1 }));
-                  setFormRuta((prev) => ({ ...prev, stops: reordenadas }));
-                }}
-              >
-                <i className="bi bi-trash"></i>
-              </button>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm mt-2"
-            onClick={() => {
-              const nuevasStops = [...formRuta.stops, { city: '', order: formRuta.stops.length + 1 }];
-              setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
-            }}
-          >
-            <i className="bi bi-plus"></i> Agregar parada
-          </button>
-        </div>
+        <RutaEditor
+          formRuta={formRuta}
+          setFormRuta={setFormRuta}
+          ciudades={ciudades}
+        />
       </ModalBase>
     </div>
   );     
