@@ -33,6 +33,9 @@ const Sidebar = ({ activeItem }) => {
       <Link to="/servicios" className={activeItem === 'servicios' ? 'active' : ''}>
         <CalendarCheck className="me-2" /> Servicios
       </Link>
+      <Link to="/rutas" className={activeItem === 'rutas' ? 'active' : ''}>
+          <Route className="me-2" /> Rutas
+      </Link>
       <Link to="/tipos-servicio" className={activeItem === 'tipos-servicio' ? 'active' : ''}>
         <ListChecks className="me-2" size={18} /> Tipos de Servicio
       </Link>
