@@ -5,13 +5,6 @@ import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
 import RutaEditor from '@components/RutaEditor/RutaEditor';
 
-import {
-  DragDropContext,
-  Droppable,
-  Draggable
-} from 'react-beautiful-dnd';
-
-
 const Rutas = () => {
   const [rutas, setRutas] = useState([]);
   const [cargando, setCargando] = useState(true);   

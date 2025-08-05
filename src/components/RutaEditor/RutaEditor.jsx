@@ -1,10 +1,9 @@
 // @components/RutaEditor/RutaEditor.jsx
 import React from 'react';
-import {
-  DragDropContext,
-  Droppable,
-  Draggable
-} from 'react-beautiful-dnd';
+import { ReactSortable } from 'react-sortablejs';
+import './RutaEditor.css';
+
+
 
 const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
   const handleInputChange = (campo, valor) => {
@@ -15,32 +14,21 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
     setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
   };
 
-  const onDragEnd = (result) => {
-    const { source, destination } = result;
-    if (!destination) return;
-
-    const items = Array.from(formRuta.stops);
-    const [moved] = items.splice(source.index, 1);
-    items.splice(destination.index, 0, moved);
-
-    const reordenadas = items.map((s, i) => ({ ...s, order: i + 1 }));
-    handleStopsChange(reordenadas);
-  };
-
-  const handleChangeStop = (idx, value) => {
-    const nuevasStops = [...formRuta.stops];
-    nuevasStops[idx].city = value;
+  const handleAgregarStop = () => {
+    const nuevasStops = [...formRuta.stops, { city: '', order: formRuta.stops.length + 1 }];
     handleStopsChange(nuevasStops);
   };
 
-  const handleDeleteStop = (idx) => {
-    const nuevasStops = formRuta.stops.filter((_, i) => i !== idx);
-    const reordenadas = nuevasStops.map((s, i) => ({ ...s, order: i + 1 }));
-    handleStopsChange(reordenadas);
+  const handleDeleteStop = (index) => {
+    const nuevasStops = formRuta.stops.filter((_, i) => i !== index);
+    handleStopsChange(nuevasStops.map((s, i) => ({ ...s, order: i + 1 })));
   };
 
-  const handleAgregarStop = () => {
-    const nuevasStops = [...formRuta.stops, { city: '', order: formRuta.stops.length + 1 }];
+  const actualizarOrden = (ordenado) => {
+    const nuevasStops = ordenado.map((city, idx) => ({
+      city,
+      order: idx + 1,
+    }));
     handleStopsChange(nuevasStops);
   };
 
@@ -85,50 +73,44 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
 
       <div className="mb-3">
         <label className="form-label">Paradas intermedias</label>
-        {formRuta.stops.length === 0 && (
-          <div className="text-muted small mb-2">No hay paradas intermedias definidas</div>
-        )}
+        <ReactSortable
+          tag="div"
+          className="d-flex flex-column gap-2"
+          list={formRuta.stops.map((s) => s.city)}
+          setList={actualizarOrden}
+        >
+          {formRuta.stops.map((stop, index) => (
+            <div key={index} className="d-flex gap-2 align-items-center bg-light border rounded p-2 ">
+              <span className="drag-handle d-flex flex-column justify-content-center me-2 cursor-pointer">
+                <i className="bi bi-arrow-up-short"></i>
+                <i className="bi bi-arrow-down-short"></i>
+              </span>
 
-        <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="stops">
-            {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef}>
-                {formRuta.stops.map((stop, idx) => (
-                  <Draggable key={idx} draggableId={`stop-${idx}`} index={idx}>
-                    {(provided) => (
-                      <div
-                        className="d-flex mb-2 gap-2 align-items-center"
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                      >
-                        <span className="me-2" style={{ cursor: 'grab' }}>☰</span>
-                        <select
-                          className="form-select"
-                          value={stop.city}
-                          onChange={(e) => handleChangeStop(idx, e.target.value)}
-                        >
-                          <option value="">Selecciona ciudad</option>
-                          {ciudades.map((c) => (
-                            <option key={c._id} value={c.name}>{c.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDeleteStop(idx)}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
-                      </div>
-                    )}
-                  </Draggable>
+              <select
+                className="form-select form-select-sm flex-grow-1"
+                value={stop.city}
+                onChange={(e) => {
+                  const nuevasStops = [...formRuta.stops];
+                  nuevasStops[index].city = e.target.value;
+                  handleStopsChange(nuevasStops);
+                }}
+              >
+                <option value="">Selecciona ciudad</option>
+                {ciudades.map((c) => (
+                  <option key={c.name} value={c.name}>{c.name}</option>
                 ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+              </select>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => handleDeleteStop(index)}
+              >
+                <i className="bi bi-trash"></i>
+              </button>
+            </div>
+          ))}
+        </ReactSortable>
+
 
         <button
           type="button"
