@@ -149,7 +149,7 @@ const Rutas = () => {
 
         <div className="stats-box">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h4 className="mb-0">Rutas Maestras</h4>
+            <h4 className="mb-0">Listado de rutas</h4>            
             <button
               className="btn btn-primary btn-sm"
               onClick={() => {
@@ -161,6 +161,7 @@ const Rutas = () => {
               <i className="bi bi-plus-lg me-2"></i> Nueva ruta
             </button>
           </div>
+          <p className="text-muted">Haz click en cada ruta para ver detalle de bloques</p>          
 
           {cargando ? (
             <div className="text-center py-4">
