@@ -121,13 +121,13 @@ const Rutas = () => {
       <Sidebar activeItem="rutas" />
       <main className="main-content">
         <div className="header">
-          <h1 className="mb-0">Rutas de Servicio</h1>
-          <p className="text-muted">Aquí puedes visualizar las distintas rutas de servicio disponibles</p>
+          <h1 className="mb-0">Rutas Maestras</h1>
+          <p className="text-muted">Aquí puedes visualizar y gestionar las rutas maestras, bloques y paradas</p>
         </div>
 
         <div className="stats-box">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h4 className="mb-0">Listado</h4>
+            <h4 className="mb-0">Rutas Maestras</h4>
             <button
               className="btn btn-primary btn-sm"
               onClick={() => {
