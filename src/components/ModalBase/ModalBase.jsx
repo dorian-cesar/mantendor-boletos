@@ -81,7 +81,7 @@ const ModalBase = ({ visible, title, onClose, children, footer, size = 'md' }) =
         </div>
 
         {footer && (
-          <div className="modal-footer border-top-0 px-4 pt-2 pb-4 d-flex justify-content-end gap-2 bg-light">
+          <div className="modal-footer border-top-0 px-4 pt-2 pb-4 d-flex justify-content-end gap-2 bg-light rounded-bottom-4">
             {footer}
           </div>
         )}
