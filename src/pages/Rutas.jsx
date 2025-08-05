@@ -10,6 +10,21 @@ const Rutas = () => {
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [rutaEditando, setRutaEditando] = useState(null);
   const [formRuta, setFormRuta] = useState({ name: '', origin: '', destination: '', stops: [] });
+  const [ciudades, setCiudades] = useState([]);
+
+  useEffect(() => {
+    const fetchCiudades = async () => {
+      try {
+        const res = await fetch('https://boletos.dev-wit.com/api/cities'); 
+        const data = await res.json();
+        setCiudades(data);
+      } catch (err) {
+        console.error('Error al cargar ciudades:', err);
+      }
+    };
+
+    fetchCiudades();
+  }, []);
 
   const handleEditar = (ruta) => {
     setRutaEditando(ruta._id);
@@ -217,16 +232,20 @@ const Rutas = () => {
 
           {formRuta.stops.map((stop, idx) => (
             <div className="d-flex mb-2 gap-2 align-items-center" key={idx}>
-              <input
-                className="form-control"
-                placeholder={`Ciudad #${idx + 1}`}
+              <select
+                className="form-select"
                 value={stop.city}
                 onChange={(e) => {
                   const nuevasStops = [...formRuta.stops];
                   nuevasStops[idx].city = e.target.value;
                   setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
                 }}
-              />
+              >
+                <option value="">Selecciona ciudad</option>
+                {ciudades.map((c) => (
+                  <option key={c._id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
               <button
                 type="button"
                 className="btn btn-sm btn-danger"
