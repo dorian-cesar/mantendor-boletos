@@ -12,6 +12,9 @@ const Rutas = () => {
   const [rutaEditando, setRutaEditando] = useState(null);
   const [formRuta, setFormRuta] = useState({ name: '', origin: '', destination: '', stops: [] });
   const [ciudades, setCiudades] = useState([]);
+  const [bloquesPorRuta, setBloquesPorRuta] = useState({});
+  const [rutasExpandida, setRutasExpandida] = useState(null);
+
 
   useEffect(() => {
     const fetchCiudades = async () => {
@@ -115,6 +118,25 @@ const Rutas = () => {
 
     fetchRutas();
   }, []);
+
+  const fetchBloques = async (rutaId) => {
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/blocks/route/${rutaId}`);
+      const data = await res.json();
+      setBloquesPorRuta(prev => ({ ...prev, [rutaId]: data }));
+    } catch (err) {
+      console.error("Error al obtener bloques:", err);
+    }
+  };
+
+  const toggleExpandirRuta = async (rutaId) => {
+    if (rutasExpandida === rutaId) {
+      setRutasExpandida(null);
+    } else {
+      if (!bloquesPorRuta[rutaId]) await fetchBloques(rutaId);
+      setRutasExpandida(rutaId);
+    }
+  };
   
   return (
     <div className="dashboard-container">
@@ -158,19 +180,44 @@ const Rutas = () => {
                 </thead>
                 <tbody>
                   {rutas.map((ruta) => (
-                    <tr key={ruta._id}>                      
-                      <td>{ruta.name}</td>
-                      <td>{ruta.origin}</td>
-                      <td>{ruta.destination}</td>
-                      <td>
-                        <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(ruta)}>
-                          <i className="bi bi-pencil-square"></i>
-                        </button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(ruta._id)}>
-                          <i className="bi bi-trash"></i>
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={ruta._id}>
+                      <tr
+                        onClick={() => toggleExpandirRuta(ruta._id)}
+                        style={{ cursor: 'pointer' }}
+                        className={rutasExpandida === ruta._id ? 'table-active' : ''}
+                      >
+                        <td>{ruta.name}</td>
+                        <td>{ruta.origin}</td>
+                        <td>{ruta.destination}</td>
+                        <td>
+                          <button className="btn btn-sm btn-warning me-2" onClick={(e) => { e.stopPropagation(); handleEditar(ruta); }}>
+                            <i className="bi bi-pencil-square"></i>
+                          </button>
+                          <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleEliminar(ruta._id); }}>
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+
+                      {rutasExpandida === ruta._id && bloquesPorRuta[ruta._id] && (
+                        <tr>
+                          <td colSpan="4">
+                            {bloquesPorRuta[ruta._id].map((bloque) => (
+                              <div key={bloque._id} className="mb-3 p-2 border rounded bg-light">
+                                <strong>{bloque.name}</strong>
+                                <ul className="mb-0">
+                                  {bloque.segments.map((segment) => (
+                                    <li key={segment._id}>
+                                      {segment.order}. {segment.from} → {segment.to}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
