@@ -14,6 +14,9 @@ const Rutas = () => {
   const [ciudades, setCiudades] = useState([]);
   const [bloquesPorRuta, setBloquesPorRuta] = useState({});
   const [rutasExpandida, setRutasExpandida] = useState(null);
+  const [modalEditarBloqueVisible, setModalEditarBloqueVisible] = useState(false);
+  const [bloqueEditando, setBloqueEditando] = useState(null);
+  const [formBloque, setFormBloque] = useState({ name: '', segments: [] });
 
 
   useEffect(() => {
@@ -129,6 +132,46 @@ const Rutas = () => {
     }
   };
 
+  const handleGuardarBloque = async () => {
+    const data = {
+      name: formBloque.name,
+      segments: formBloque.segments.map((seg, index) => ({
+        _id: seg._id,           // conservamos el ID del segmento
+        from: seg.from,
+        to: seg.to,
+        order: index + 1,       // recalculamos el orden
+      })),
+    };
+
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/blocks/${bloqueEditando}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) throw new Error('Error al guardar bloque');
+
+      const bloqueActualizado = await res.json();
+
+      // Actualiza el estado sin volver a hacer fetch
+      setBloquesPorRuta((prev) => {
+        const nuevosBloques = prev[rutasExpandida].map((bloque) =>
+          bloque._id === bloqueEditando ? bloqueActualizado : bloque
+        );
+        return { ...prev, [rutasExpandida]: nuevosBloques };
+      });
+
+      setModalEditarBloqueVisible(false);
+      setBloqueEditando(null);
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar bloque');
+    }
+  };
+
   const toggleExpandirRuta = async (rutaId) => {
     if (rutasExpandida === rutaId) {
       setRutasExpandida(null);
@@ -205,7 +248,41 @@ const Rutas = () => {
                           <td colSpan="4">
                             {bloquesPorRuta[ruta._id].map((bloque) => (
                               <div key={bloque._id} className="mb-3 p-2 border rounded bg-light">
-                                <strong>{bloque.name}</strong>
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <strong>{bloque.name}</strong>
+                                  <div>
+                                    <button
+                                      className="btn btn-sm btn-warning me-2"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setBloqueEditando(bloque._id);
+                                        setFormBloque({
+                                          name: bloque.name,
+                                          segments: bloque.segments.map((seg) => ({
+                                            ...seg,
+                                          })),
+                                        });
+                                        setModalEditarBloqueVisible(true);
+                                      }}
+                                    >
+                                      <i className="bi bi-pencil-square"></i>
+                                    </button>
+
+                                    <button
+                                      className="btn btn-sm btn-danger"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Aquí iría tu lógica de eliminación del bloque
+                                        if (window.confirm('¿Estás seguro de eliminar este bloque?')) {
+                                          console.log("Eliminar bloque:", bloque._id);
+                                        }
+                                      }}
+                                    >
+                                      <i className="bi bi-trash"></i>
+                                    </button>
+                                  </div>
+                                </div>
+
                                 <ul className="mb-0">
                                   {bloque.segments.map((segment) => (
                                     <li key={segment._id}>
@@ -251,6 +328,66 @@ const Rutas = () => {
           ciudades={ciudades}
         />
       </ModalBase>
+
+      <ModalBase
+          visible={modalEditarBloqueVisible}
+          title="Editar Bloque"
+          onClose={() => {
+            setModalEditarBloqueVisible(false);
+            setBloqueEditando(null);
+          }}
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={() => setModalEditarBloqueVisible(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" onClick={handleGuardarBloque}>
+                Guardar Cambios
+              </button>
+            </>
+          }
+        >
+          <div className="mb-3">
+            <label className="form-label">Nombre del bloque</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formBloque.name}
+              onChange={(e) => setFormBloque({ ...formBloque, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="form-label">Segmentos</label>
+            {formBloque.segments.map((segment, index) => (
+              <div key={segment._id || index} className="d-flex gap-2 align-items-end mb-2">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Desde"
+                  value={segment.from}
+                  onChange={(e) => {
+                    const segs = [...formBloque.segments];
+                    segs[index].from = e.target.value;
+                    setFormBloque({ ...formBloque, segments: segs });
+                  }}
+                />
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Hasta"
+                  value={segment.to}
+                  onChange={(e) => {
+                    const segs = [...formBloque.segments];
+                    segs[index].to = e.target.value;
+                    setFormBloque({ ...formBloque, segments: segs });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </ModalBase>
+
     </div>
   );     
 };
