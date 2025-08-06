@@ -54,8 +54,7 @@ const Servicios = () => {
   const [destinosDisponibles, setDestinosDisponibles] = useState([]);
   const [destinoSeleccionado, setDestinoSeleccionado] = useState('');
   const [origenesDisponibles, setOrigenesDisponibles] = useState([]);
-
-  
+  const [actualizando, setActualizando] = useState(false);  
 
   const ordenarServicios = (lista, criterio, asc = true) => {
     if (!lista) return [];
@@ -534,12 +533,62 @@ const Servicios = () => {
           <div className="stats-box">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h4 className="mb-0">Servicios programados por día</h4>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setModalNuevoVisible(true)}
-              >
-                <i className="bi bi-calendar-plus me-2"></i> Nuevo Servicio
-              </button>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  disabled={actualizando}
+                  onClick={async () => {
+                    setActualizando(true);
+                    try {
+                      const res = await fetch('https://boletos.dev-wit.com/api/services/all');
+                      if (!res.ok) throw new Error('Error al obtener los servicios desde el servidor');
+                      const data = await res.json();
+
+                      setTodosLosServicios((prev) => {
+                        const nuevos = [];
+
+                        data.forEach((nuevo) => {
+                          const antiguo = prev.find(s => s._id === nuevo._id);
+                          const haCambiado =
+                            !antiguo ||
+                            antiguo.departureTime !== nuevo.departureTime ||
+                            antiguo.origin !== nuevo.origin ||
+                            antiguo.destination !== nuevo.destination ||
+                            antiguo.busType !== nuevo.busType;
+
+                          nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
+                        });
+
+                        // Eliminar servicios que ya no existen en la API
+                        const ids = data.map(s => s._id);
+                        return nuevos.filter(s => ids.includes(s._id));
+                      });
+
+                      showToast('Actualizado', 'Lista de servicios sincronizada correctamente.');
+                    } catch (error) {
+                      console.error(error);
+                      showToast('Error', error.message || 'No se pudo actualizar la lista de servicios', true);
+                    } finally {
+                      setActualizando(false);
+                    }
+                  }}
+                >
+                  {actualizando ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  ) : (
+                    <>
+                      <i className="bi bi-arrow-repeat me-1"></i> Actualizar
+                    </>
+                  )}
+                </button>
+
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setModalNuevoVisible(true)}
+                >
+                  <i className="bi bi-calendar-plus me-2"></i> Nuevo Servicio
+                </button>
+              </div>
             </div>
 
             <div className="mb-3">
