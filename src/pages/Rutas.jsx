@@ -46,6 +46,8 @@ const Rutas = () => {
   };
 
   const handleGuardar = async () => {
+    const esNuevaRuta = !rutaEditando;
+
     const stopsConOrden = formRuta.stops.map((s, i) => ({
       city: s.city,
       order: i + 1
@@ -58,11 +60,11 @@ const Rutas = () => {
       stops: stopsConOrden,
     };
 
-    const endpoint = rutaEditando
-      ? `https://boletos.dev-wit.com/api/routes/${rutaEditando}`
-      : `https://boletos.dev-wit.com/api/routes/`;
+    const endpoint = esNuevaRuta
+      ? 'https://boletos.dev-wit.com/api/routes/'
+      : `https://boletos.dev-wit.com/api/routes/${rutaEditando}`;
 
-    const metodo = rutaEditando ? 'PUT' : 'POST';
+    const metodo = esNuevaRuta ? 'POST' : 'PUT';
 
     try {
       const res = await fetch(endpoint, {
@@ -71,28 +73,35 @@ const Rutas = () => {
         body: JSON.stringify(dataAGuardar),
       });
 
-      showToast(
-        'Ruta guardada',
-        rutaEditando ? 'La ruta fue actualizada correctamente' : 'La nueva ruta fue creada con éxito'
-      );
+      const body = await res.json();
 
-      if (!res.ok) throw new Error('Error al guardar ruta de servicio');
+      if (!res.ok) {
+        const mensaje = body?.message || 'Error desconocido al guardar la ruta';
+        throw new Error(mensaje);
+      }
 
-      const nuevo = await res.json();
+      const nuevaRuta = body;
 
       setRutas((prev) => {
-        if (rutaEditando) {
-          return prev.map((t) => (t._id === rutaEditando ? nuevo : t));
+        if (esNuevaRuta) {
+          return [...prev, nuevaRuta];
         } else {
-          return [...prev, nuevo];
+          return prev.map((t) => (t._id === rutaEditando ? nuevaRuta : t));
         }
       });
+
+      showToast(
+        esNuevaRuta ? 'Ruta creada' : 'Ruta actualizada',
+        esNuevaRuta
+          ? 'La nueva ruta fue creada exitosamente'
+          : 'Los cambios fueron guardados correctamente'
+      );
 
       setModalEditarVisible(false);
       setRutaEditando(null);
     } catch (err) {
       console.error(err);
-      showToast('Error', 'No se pudo guardar la ruta', true);
+      showToast('Error', err.message || 'No se pudo guardar la ruta', true);
     }
   };
 
@@ -241,7 +250,7 @@ const Rutas = () => {
               className="btn btn-primary btn-sm"
               onClick={() => {
                 setRutaEditando(null);
-                setFormRuta({ name: '', origin: '' , destination: ''});
+                setFormRuta({ name: '', origin: '', destination: '', stops: [] });
                 setModalEditarVisible(true);
               }}
             >
