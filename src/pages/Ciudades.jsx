@@ -17,6 +17,10 @@ const Ciudades = () => {
     region: '',
     country: ''
   });
+  const regionesUnicas = [...new Set(ciudades.map((c) => c.region).filter(Boolean))];
+  const paisesUnicos = [...new Set(ciudades.map((c) => c.country).filter(Boolean))];
+  const [usarRegionManual, setUsarRegionManual] = useState(false);
+  const [usarPaisManual, setUsarPaisManual] = useState(false);
 
   useEffect(() => {
     const fetchCiudades = async () => {
@@ -33,6 +37,14 @@ const Ciudades = () => {
 
     fetchCiudades();
   }, []);
+
+  const resetFormularioCiudad = () => {
+    setModalVisible(false);
+    setCiudadEditando(null);
+    setFormCiudad({ name: '', region: '', country: '' });
+    setUsarRegionManual(false);
+    setUsarPaisManual(false);
+  };
 
   const handleEditar = (ciudad) => {
     setCiudadEditando(ciudad._id);
@@ -235,12 +247,16 @@ const Ciudades = () => {
         onClose={() => {
           setModalVisible(false);
           setCiudadEditando(null);
+          setFormCiudad({ name: '', region: '', country: '' });
+          setUsarRegionManual(false);
+          setUsarPaisManual(false);
         }}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalVisible(false)}>
+            <button className="btn btn-secondary" onClick={resetFormularioCiudad}>
               Cancelar
             </button>
+
             <button className="btn btn-primary" onClick={handleGuardar}>
               Guardar
             </button>
@@ -257,24 +273,88 @@ const Ciudades = () => {
           />
         </div>
 
+        {/* REGIÓN */}
         <div className="mb-3">
           <label className="form-label">Región</label>
-          <input
-            type="text"
-            className="form-control"
-            value={formCiudad.region}
-            onChange={(e) => setFormCiudad({ ...formCiudad, region: e.target.value })}
-          />
+          {usarRegionManual ? (
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Escribe una nueva región"
+              value={formCiudad.region}
+              onChange={(e) => {
+                const valor = e.target.value;
+                setFormCiudad({ ...formCiudad, region: valor });
+                if (valor.trim() === '') {
+                  setUsarRegionManual(false);
+                }
+              }}
+            />
+          ) : (
+            <select
+              className="form-select"
+              value={formCiudad.region}
+              onChange={(e) => {
+                const valor = e.target.value;
+                if (valor === '__otra__') {
+                  setUsarRegionManual(true);
+                  setFormCiudad({ ...formCiudad, region: '' });
+                } else {
+                  setFormCiudad({ ...formCiudad, region: valor });
+                }
+              }}
+            >
+              <option value="">Seleccione una región</option>
+              {regionesUnicas.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+              <option value="__otra__">Otro...</option>
+            </select>
+          )}
         </div>
 
+        {/* PAÍS */}
         <div className="mb-3">
           <label className="form-label">País</label>
-          <input
-            type="text"
-            className="form-control"
-            value={formCiudad.country}
-            onChange={(e) => setFormCiudad({ ...formCiudad, country: e.target.value })}
-          />
+          {usarPaisManual ? (
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Escribe un nuevo país"
+              value={formCiudad.country}
+              onChange={(e) => {
+                const valor = e.target.value;
+                setFormCiudad({ ...formCiudad, country: valor });
+                if (valor.trim() === '') {
+                  setUsarPaisManual(false);
+                }
+              }}
+            />
+          ) : (
+            <select
+              className="form-select"
+              value={formCiudad.country}
+              onChange={(e) => {
+                const valor = e.target.value;
+                if (valor === '__otro__') {
+                  setUsarPaisManual(true);
+                  setFormCiudad({ ...formCiudad, country: '' });
+                } else {
+                  setFormCiudad({ ...formCiudad, country: valor });
+                }
+              }}
+            >
+              <option value="">Seleccione un país</option>
+              {paisesUnicos.map((pais) => (
+                <option key={pais} value={pais}>
+                  {pais}
+                </option>
+              ))}
+              <option value="__otro__">Otro...</option>
+            </select>
+          )}
         </div>
       </ModalBase>
     </div>
