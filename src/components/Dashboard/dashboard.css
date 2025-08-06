@@ -91,3 +91,12 @@
 .stat-item:last-child {
   border-bottom: none;
 }
+
+.chevron-icon {
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.chevron-icon.rotated {
+  transform: rotate(90deg);
+}

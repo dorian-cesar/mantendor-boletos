@@ -278,7 +278,7 @@ const Rutas = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-bordered table-hover align-middle">
+              <table className="table table-bordered table-hover align-middle">                
                 <thead className="table-light">
                   <tr>                    
                     <th>Nombre</th>
@@ -295,14 +295,34 @@ const Rutas = () => {
                         style={{ cursor: 'pointer' }}
                         className={rutasExpandida === ruta._id ? 'table-active' : ''}
                       >
-                        <td>{ruta.name}</td>
+                        <td title={rutasExpandida === ruta._id ? 'Ocultar bloques' : 'Ver bloques'}>
+                          <i
+                            className={`bi bi-chevron-right me-2 chevron-icon ${
+                              rutasExpandida === ruta._id ? 'rotated' : ''
+                            }`}
+                          ></i>
+                          {ruta.name}
+                        </td>
+
                         <td>{ruta.origin}</td>
                         <td>{ruta.destination}</td>
                         <td>
-                          <button className="btn btn-sm btn-warning me-2" onClick={(e) => { e.stopPropagation(); handleEditar(ruta); }}>
+                          <button
+                            className="btn btn-sm btn-warning me-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditar(ruta);
+                            }}
+                          >
                             <i className="bi bi-pencil-square"></i>
                           </button>
-                          <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleEliminar(ruta._id); }}>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEliminar(ruta._id);
+                            }}
+                          >
                             <i className="bi bi-trash"></i>
                           </button>
                         </td>
@@ -311,6 +331,7 @@ const Rutas = () => {
                       {rutasExpandida === ruta._id && bloquesPorRuta[ruta._id] && (
                         <tr>
                           <td colSpan="4">
+                            {/* CONTENIDO EXPANDIDO */}
                             <div className="d-flex justify-content-between align-items-center mb-3">
                               <h6 className="mb-0">Bloques de esta ruta</h6>
                               <button
@@ -319,7 +340,7 @@ const Rutas = () => {
                                   e.stopPropagation();
                                   setBloqueEditando(null);
                                   setFormBloque({ name: '', segments: [] });
-                                  setRutasExpandida(ruta._id); // asegúrate de mantener esta ruta expandida
+                                  setRutasExpandida(ruta._id);
                                   setModalEditarBloqueVisible(true);
                                 }}
                               >
