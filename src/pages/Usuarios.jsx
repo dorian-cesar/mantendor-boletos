@@ -12,6 +12,7 @@ const Usuarios = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [usuarioEditandoId, setUsuarioEditandoId] = useState(null);
+  const [actualizando, setActualizando] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -182,12 +183,80 @@ const Usuarios = () => {
           <div className="stats-box">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h4 className="mb-0">Lista de Usuarios</h4>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setModalVisible(true)}
-              >
-                <i className="bi bi-person-plus me-2"></i> Nuevo Usuario
-              </button>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  disabled={actualizando}
+                  onClick={async () => {
+                    setActualizando(true);
+                    try {
+                      let token = sessionStorage.getItem("token");
+                      if (!token) {
+                        const recordarSession = localStorage.getItem("recordarSession");
+                        if (recordarSession) {
+                          try {
+                            const parsed = JSON.parse(recordarSession);
+                            token = parsed.token;
+                          } catch (e) {
+                            console.error("Error al parsear recordarSession:", e);
+                          }
+                        }
+                      }
+
+                      const res = await fetch("https://boletos.dev-wit.com/api/users/", {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+
+                      if (!res.ok) throw new Error("No se pudo actualizar la lista de usuarios.");
+
+                      const data = await res.json();
+
+                      setUsuarios((prevUsuarios) => {
+                        const nuevos = [];
+
+                        data.forEach((nuevo) => {
+                          const antiguo = prevUsuarios.find(u => u._id === nuevo._id);
+                          const haCambiado =
+                            !antiguo ||
+                            antiguo.name !== nuevo.name ||
+                            antiguo.email !== nuevo.email ||
+                            antiguo.role !== nuevo.role;
+
+                          nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
+                        });
+
+                        // Eliminar usuarios que ya no existen
+                        return nuevos;
+                      });
+
+                      showToast("Actualizado", "Lista de usuarios sincronizada correctamente.");
+                    } catch (err) {
+                      console.error(err);
+                      showToast("Error", err.message || "No se pudo actualizar la lista de usuarios.", true);
+                    } finally {
+                      setActualizando(false);
+                    }
+                  }}
+                >
+                  {actualizando ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  ) : (
+                    <>
+                      <i className="bi bi-arrow-repeat me-1"></i> Actualizar
+                    </>
+                  )}
+                </button>
+
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setModalVisible(true)}
+                >
+                  <i className="bi bi-person-plus me-2"></i> Nuevo Usuario
+                </button>
+              </div>
             </div>
 
             <div className="mb-3">
