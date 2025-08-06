@@ -12,12 +12,19 @@ const Ciudades = () => {
   const [actualizando, setActualizando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [ciudadEditando, setCiudadEditando] = useState(null);
+
   const [formCiudad, setFormCiudad] = useState({
     name: '',
     region: '',
     country: ''
   });
   const regionesUnicas = [...new Set(ciudades.map((c) => c.region).filter(Boolean))];
+
+  const ciudadesPorRegion = regionesUnicas.reduce((acc, region) => {
+    acc[region] = ciudades.filter((c) => c.region === region);
+    return acc;
+  }, {});
+
   const paisesUnicos = [...new Set(ciudades.map((c) => c.country).filter(Boolean))];
   const [usarRegionManual, setUsarRegionManual] = useState(false);
   const [usarPaisManual, setUsarPaisManual] = useState(false);
@@ -201,41 +208,28 @@ const Ciudades = () => {
               <p className="mt-2">Cargando ciudades...</p>
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table table-bordered table-hover align-middle">
-                <thead className="table-light">
-                  <tr>                    
-                    <th>Nombre</th>
-                    <th>Región</th>
-                    <th>País</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ciudades.map((ciudad) => (
-                    <tr key={ciudad._id}>                      
-                      <td>{ciudad.name}</td>
-                      <td>{ciudad.region}</td>
-                      <td>{ciudad.country}</td>
-                      
-                      <td>
-                        <button
-                          className="btn btn-sm btn-warning me-2"
-                          onClick={() => handleEditar(ciudad)}
-                        >
+            <div className="listado-agrupado">
+              {regionesUnicas.map((region) => (
+                <div key={region} className="mb-4">
+                  <h5 className="fw-bold text-primary border-bottom pb-1">{region}</h5>
+
+                  {ciudadesPorRegion[region].map((ciudad) => (
+                    <div key={ciudad._id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                      <div>
+                        <strong>{ciudad.name}</strong> <span className="text-muted">({ciudad.country})</span>
+                      </div>
+                      <div>
+                        <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(ciudad)}>
                           <i className="bi bi-pencil-square"></i>
                         </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleEliminar(ciudad._id)}
-                        >
+                        <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(ciudad._id)}>
                           <i className="bi bi-trash"></i>
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ))}
             </div>
           )}
         </div>
