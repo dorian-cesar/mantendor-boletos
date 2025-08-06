@@ -4,6 +4,7 @@ import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
 import { showToast } from '@components/Toast/Toast';
 import ModalBase from '@components/ModalBase/ModalBase';
+import Swal from 'sweetalert2';
 
 const Buses = () => {
   const [buses, setBuses] = useState([]);
@@ -40,6 +41,36 @@ const Buses = () => {
   const formatearFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
     return fecha.toLocaleDateString('es-CL');
+  };
+
+  const handleEliminar = async (id) => {
+    const result = await Swal.fire({
+      title: '¿Eliminar bus?',
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/buses/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) throw new Error('Error al eliminar el bus');
+
+      setBuses((prev) => prev.filter((b) => b._id !== id));
+
+      await Swal.fire('Eliminado', 'El bus fue eliminado correctamente.', 'success');
+    } catch (err) {
+      console.error(err);
+      await Swal.fire('Error', 'No se pudo eliminar el bus.', 'error');
+    }
   };
 
   return (
@@ -143,6 +174,7 @@ const Buses = () => {
                     <th>Revisión Técnica</th>
                     <th>Permiso Circulación</th>
                     <th>Disponible</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -160,6 +192,37 @@ const Buses = () => {
                         ) : (
                           <span className="badge bg-danger">No</span>
                         )}
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-warning me-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBusEditando(bus);
+                            setFormBus({
+                              patente: bus.patente,
+                              marca: bus.marca,
+                              modelo: bus.modelo,
+                              anio: bus.anio,
+                              revision_tecnica: bus.revision_tecnica.slice(0, 10),
+                              permiso_circulacion: bus.permiso_circulacion.slice(0, 10),
+                              disponible: bus.disponible,
+                            });
+                            setModalVisible(true);
+                          }}
+                        >
+                          <i className="bi bi-pencil-square"></i>
+                        </button>
+
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEliminar(bus._id);
+                          }}
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
                       </td>
                     </tr>
                   ))}
