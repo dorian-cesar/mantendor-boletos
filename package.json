@@ -13,7 +13,8 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.3",
     "react-sortablejs": "^6.1.4",
-    "sortablejs": "^1.15.6"
+    "sortablejs": "^1.15.6",
+    "sweetalert2": "^11.22.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.6.0",

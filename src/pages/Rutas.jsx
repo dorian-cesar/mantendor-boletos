@@ -5,6 +5,7 @@ import { Spinner } from 'react-bootstrap';
 import { showToast } from '@components/Toast/Toast';
 import ModalBase from '@components/ModalBase/ModalBase';
 import RutaEditor from '@components/RutaEditor/RutaEditor';
+import Swal from 'sweetalert2';
 
 const Rutas = () => {
   const [rutas, setRutas] = useState([]);
@@ -106,20 +107,31 @@ const Rutas = () => {
   };
 
   const handleEliminar = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar esta ruta?')) return;
+    const result = await Swal.fire({
+      title: '¿Eliminar ruta?',
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, eliminar'
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       const res = await fetch(`https://boletos.dev-wit.com/api/routes/${id}`, {
         method: 'DELETE',
       });
 
-      showToast('Ruta eliminada', 'La ruta fue eliminada exitosamente');
-
       if (!res.ok) throw new Error('Error al eliminar');
+
       setRutas((prev) => prev.filter((t) => t._id !== id));
+
+      await Swal.fire('Ruta eliminada', 'La ruta fue eliminada exitosamente.', 'success');
     } catch (err) {
       console.error(err);
-      showToast('Error', 'No se pudo eliminar la ruta', true);
+      await Swal.fire('Error', 'No se pudo eliminar la ruta', 'error');
     }
   };
 
@@ -336,32 +348,44 @@ const Rutas = () => {
                                     </button>
 
                                     <button
-                                      className="btn btn-sm btn-danger"
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (!window.confirm('¿Estás seguro de eliminar este bloque?')) return;
+                                        className="btn btn-sm btn-danger"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
 
-                                        try {
-                                          const res = await fetch(`https://boletos.dev-wit.com/api/blocks/${bloque._id}`, {
-                                            method: 'DELETE',
+                                          const result = await Swal.fire({
+                                            title: '¿Estás seguro?',
+                                            text: 'Esta acción no se puede deshacer.',
+                                            icon: 'warning',
+                                            showCancelButton: true,
+                                            confirmButtonColor: '#3085d6',
+                                            cancelButtonColor: '#d33',
+                                            confirmButtonText: 'Sí, eliminar',
+                                            cancelButtonText: 'Cancelar',
                                           });
 
-                                          if (!res.ok) throw new Error('Error en la respuesta del servidor');
+                                          if (!result.isConfirmed) return;
 
-                                          setBloquesPorRuta((prev) => {
-                                            const nuevosBloques = prev[ruta._id].filter((b) => b._id !== bloque._id);
-                                            return { ...prev, [ruta._id]: nuevosBloques };
-                                          });
+                                          try {
+                                            const res = await fetch(`https://boletos.dev-wit.com/api/blocks/${bloque._id}`, {
+                                              method: 'DELETE',
+                                            });
 
-                                          showToast('Bloque eliminado', 'El bloque fue eliminado correctamente');
-                                        } catch (err) {
-                                          console.error(err);
-                                          showToast('Error', 'No se pudo eliminar el bloque', true);
-                                        }
-                                      }}
-                                    >
-                                      <i className="bi bi-trash"></i>
-                                    </button>
+                                            if (!res.ok) throw new Error('Error en la respuesta del servidor');
+
+                                            setBloquesPorRuta((prev) => {
+                                              const nuevosBloques = prev[ruta._id].filter((b) => b._id !== bloque._id);
+                                              return { ...prev, [ruta._id]: nuevosBloques };
+                                            });
+
+                                            await Swal.fire('Eliminado', 'El bloque fue eliminado correctamente.', 'success');
+                                          } catch (err) {
+                                            console.error(err);
+                                            await Swal.fire('Error', 'No se pudo eliminar el bloque.', 'error');
+                                          }
+                                        }}
+                                      >
+                                        <i className="bi bi-trash"></i>
+                                      </button>
                                   </div>
                                 </div>
 
