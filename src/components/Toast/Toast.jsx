@@ -49,7 +49,7 @@ export function showToast(title, message, isError = false) {
 
   container.appendChild(toastElement);
   
-  const bsToast = new Toast(toastElement, { autohide: true, delay: 4000 });
+  const bsToast = new Toast(toastElement, { autohide: true, delay: 3800 });
 
   bsToast.show();
 
