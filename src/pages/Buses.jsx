@@ -11,6 +11,7 @@ const Buses = () => {
   const [cargando, setCargando] = useState(true);
   const [actualizando, setActualizando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [busEditando, setBusEditando] = useState(null);
   const [formBus, setFormBus] = useState({
     patente: '',
     marca: '',
@@ -233,9 +234,10 @@ const Buses = () => {
         </div>
         <ModalBase
           visible={modalVisible}
-          title="Registrar nuevo bus"
+          title={busEditando ? 'Editar bus' : 'Registrar nuevo bus'}
           onClose={() => {
             setModalVisible(false);
+            setBusEditando(null);
             setFormBus({
               patente: '',
               marca: '',
@@ -261,18 +263,38 @@ const Buses = () => {
                 onClick={async () => {
                   setGuardando(true);
                   try {
-                    const res = await fetch('https://boletos.dev-wit.com/api/buses/', {
-                      method: 'POST',
+                    const url = busEditando
+                      ? `https://boletos.dev-wit.com/api/buses/${busEditando._id}`
+                      : 'https://boletos.dev-wit.com/api/buses/';
+                    const method = busEditando ? 'PUT' : 'POST';
+
+                    const res = await fetch(url, {
+                      method,
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(formBus),
                     });
 
-                    if (!res.ok) throw new Error('Error al guardar bus');
-                    const nuevoBus = await res.json();
+                    if (!res.ok) throw new Error('Error al guardar el bus');
 
-                    setBuses((prev) => [...prev, nuevoBus]);
-                    showToast('Éxito', 'Bus creado correctamente');
+                    const busGuardado = await res.json();
+
+                    setBuses((prev) => {
+                      if (busEditando) {
+                        return prev.map((bus) =>
+                          bus._id === busEditando._id ? busGuardado : bus
+                        );
+                      } else {
+                        return [...prev, busGuardado];
+                      }
+                    });
+
+                    showToast(
+                      'Éxito',
+                      busEditando ? 'Bus actualizado correctamente' : 'Bus creado correctamente'
+                    );
+
                     setModalVisible(false);
+                    setBusEditando(null);
                   } catch (err) {
                     console.error(err);
                     showToast('Error', err.message || 'No se pudo guardar el bus', true);
