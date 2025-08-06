@@ -18,7 +18,8 @@ const Rutas = () => {
   const [rutasExpandida, setRutasExpandida] = useState(null);
   const [modalEditarBloqueVisible, setModalEditarBloqueVisible] = useState(false);
   const [bloqueEditando, setBloqueEditando] = useState(null);
-  const [formBloque, setFormBloque] = useState({ name: '', segments: [] });
+  const [formBloque, setFormBloque] = useState({ name: '', segments: [] });  
+  const [actualizando, setActualizando] = useState(false);
 
 
   useEffect(() => {
@@ -84,11 +85,9 @@ const Rutas = () => {
       const nuevaRuta = body;
 
       setRutas((prev) => {
-        if (esNuevaRuta) {
-          return [...prev, nuevaRuta];
-        } else {
-          return prev.map((t) => (t._id === rutaEditando ? nuevaRuta : t));
-        }
+        const nuevas = esNuevaRuta ? [...prev, nuevaRuta] : prev.map((t) => (t._id === rutaEditando ? nuevaRuta : t));
+        if (!esNuevaRuta) setRutasModificadas((mods) => [...new Set([...mods, rutaEditando])]);
+        return nuevas;
       });
 
       showToast(
@@ -257,18 +256,72 @@ const Rutas = () => {
 
         <div className="stats-box">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h4 className="mb-0">Listado de rutas</h4>            
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => {
-                setRutaEditando(null);
-                setFormRuta({ name: '', origin: '', destination: '', stops: [] });
-                setModalEditarVisible(true);
-              }}
-            >
-              <i className="bi bi-plus-lg me-2"></i> Nueva ruta
-            </button>
+            <h4 className="mb-0">Listado de rutas</h4>
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                disabled={actualizando}
+                onClick={async () => {
+                  setActualizando(true);
+                  try {
+                    const res = await fetch('https://boletos.dev-wit.com/api/routes/');
+                    const data = await res.json();
+
+                    setRutas((prevRutas) => {
+                      const nuevasRutas = [];
+
+                      // 1. Agregar o reemplazar rutas
+                      data.forEach((nuevaRuta) => {
+                        const antigua = prevRutas.find((r) => r._id === nuevaRuta._id);
+
+                        const haCambiado =
+                          !antigua ||
+                          antigua.name !== nuevaRuta.name ||
+                          antigua.origin !== nuevaRuta.origin ||
+                          antigua.destination !== nuevaRuta.destination ||
+                          JSON.stringify(antigua.stops || []) !== JSON.stringify(nuevaRuta.stops || []);
+
+                        if (haCambiado || !antigua) {
+                          nuevasRutas.push(nuevaRuta);
+                        } else {
+                          nuevasRutas.push(antigua); // sin cambios → conserva referencia
+                        }
+                      });
+
+                      return nuevasRutas;
+                    });
+
+                    showToast('Actualizado', 'Lista de rutas sincronizada con el servidor');
+                  } catch (err) {
+                    console.error(err);
+                    showToast('Error al actualizar', err.message || 'No se pudo sincronizar la lista de rutas', true);
+                  } finally {
+                    setActualizando(false);
+                  }
+                }}
+              >
+                {actualizando ? (
+                  <Spinner animation="border" size="sm" />
+                ) : (
+                  <>
+                    <i className="bi bi-arrow-repeat me-1"></i> Actualizar
+                  </>
+                )}
+              </button>
+
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setRutaEditando(null);
+                  setFormRuta({ name: '', origin: '', destination: '', stops: [] });
+                  setModalEditarVisible(true);
+                }}
+              >
+                <i className="bi bi-plus-lg me-2"></i> Nueva ruta
+              </button>
+            </div>
           </div>
+
           <p className="text-muted">Haz click en cada ruta para ver detalle de bloques</p>          
 
           {cargando ? (
