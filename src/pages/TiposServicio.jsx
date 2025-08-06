@@ -3,6 +3,7 @@ import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
+import { showToast } from '@components/Toast/Toast';
 
 const TiposServicio = () => {
   const [tipos, setTipos] = useState([]);
@@ -10,6 +11,7 @@ const TiposServicio = () => {
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [tipoEditando, setTipoEditando] = useState(null);
   const [formTipo, setFormTipo] = useState({ name: '', description: '' });
+  const [actualizando, setActualizando] = useState(false);
 
   const handleEditar = (tipo) => {
     setTipoEditando(tipo._id);
@@ -95,16 +97,64 @@ const TiposServicio = () => {
         <div className="stats-box">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h4 className="mb-0">Listado</h4>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => {
-                setTipoEditando(null);
-                setFormTipo({ name: '', description: '' });
-                setModalEditarVisible(true);
-              }}
-            >
-              <i className="bi bi-plus-lg me-2"></i> Nuevo Tipo
-            </button>
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                disabled={actualizando}
+                onClick={async () => {
+                  setActualizando(true);
+                  try {
+                    const res = await fetch('https://boletos.dev-wit.com/api/tipoServicio/');
+                    if (!res.ok) throw new Error('Error al obtener tipos desde el servidor');
+                    const data = await res.json();
+
+                    setTipos((prev) => {
+                      const nuevos = [];
+
+                      data.forEach((nuevo) => {
+                        const antiguo = prev.find(t => t._id === nuevo._id);
+                        const haCambiado =
+                          !antiguo ||
+                          antiguo.name !== nuevo.name ||
+                          antiguo.description !== nuevo.description;
+
+                        nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
+                      });
+
+                      // Eliminar tipos que ya no están
+                      const ids = data.map(t => t._id);
+                      return nuevos.filter(t => ids.includes(t._id));
+                    });
+
+                    showToast('Actualizado', 'Se sincronizó la lista de tipos de servicio');
+                  } catch (error) {
+                    console.error(error);
+                    showToast('Error', error.message || 'No se pudo actualizar la lista', true);
+                  } finally {
+                    setActualizando(false);
+                  }
+                }}
+              >
+                {actualizando ? (
+                  <Spinner animation="border" size="sm" />
+                ) : (
+                  <>
+                    <i className="bi bi-arrow-repeat me-1"></i> Actualizar
+                  </>
+                )}
+              </button>
+
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setTipoEditando(null);
+                  setFormTipo({ name: '', description: '' });
+                  setModalEditarVisible(true);
+                }}
+              >
+                <i className="bi bi-plus-lg me-2"></i> Nuevo Tipo
+              </button>
+            </div>
           </div>
 
           {cargando ? (
