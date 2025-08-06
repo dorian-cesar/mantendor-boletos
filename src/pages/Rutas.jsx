@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
+import { showToast } from '@components/Toast/Toast';
 import ModalBase from '@components/ModalBase/ModalBase';
 import RutaEditor from '@components/RutaEditor/RutaEditor';
 
@@ -70,6 +71,11 @@ const Rutas = () => {
         body: JSON.stringify(dataAGuardar),
       });
 
+      showToast(
+        'Ruta guardada',
+        rutaEditando ? 'La ruta fue actualizada correctamente' : 'La nueva ruta fue creada con éxito'
+      );
+
       if (!res.ok) throw new Error('Error al guardar ruta de servicio');
 
       const nuevo = await res.json();
@@ -86,7 +92,7 @@ const Rutas = () => {
       setRutaEditando(null);
     } catch (err) {
       console.error(err);
-      alert('Error al guardar ruta');
+      showToast('Error', 'No se pudo guardar la ruta', true);
     }
   };
 
@@ -98,11 +104,13 @@ const Rutas = () => {
         method: 'DELETE',
       });
 
+      showToast('Ruta eliminada', 'La ruta fue eliminada exitosamente');
+
       if (!res.ok) throw new Error('Error al eliminar');
       setRutas((prev) => prev.filter((t) => t._id !== id));
     } catch (err) {
       console.error(err);
-      alert('Error al eliminar');
+      showToast('Error', 'No se pudo eliminar la ruta', true);
     }
   };
 
@@ -133,42 +141,78 @@ const Rutas = () => {
   };
 
   const handleGuardarBloque = async () => {
-    const data = {
-      name: formBloque.name,
-      segments: formBloque.segments.map((seg, index) => ({
-        _id: seg._id,           // conservamos el ID del segmento
+    const isEditando = Boolean(bloqueEditando);
+
+    const segmentsLimpios = formBloque.segments.map((seg, index) => {
+      const base = {
         from: seg.from,
         to: seg.to,
-        order: index + 1,       // recalculamos el orden
-      })),
+      };
+      if (isEditando) {
+        return {
+          ...base,
+          _id: seg._id,
+          order: index + 1,
+        };
+      }
+      return base;
+    });
+
+    const data = {
+      name: formBloque.name,
+      segments: segmentsLimpios,
+      ...(isEditando ? {} : { routeMaster: rutasExpandida }),
     };
 
+    const endpoint = isEditando
+      ? `https://boletos.dev-wit.com/api/blocks/${bloqueEditando}`
+      : `https://boletos.dev-wit.com/api/blocks`;
+
+    const method = isEditando ? 'PUT' : 'POST';
+
     try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/blocks/${bloqueEditando}`, {
-        method: 'PUT',
+      const res = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
       });
 
-      if (!res.ok) throw new Error('Error al guardar bloque');
+      const responseBody = await res.json(); // leer siempre el cuerpo
 
-      const bloqueActualizado = await res.json();
+      if (!res.ok) {
+        const errorMessage = responseBody?.message || 'Error desconocido al guardar el bloque';
+        throw new Error(errorMessage);
+      }
 
-      // Actualiza el estado sin volver a hacer fetch
+      const bloqueGuardado = responseBody;
+
       setBloquesPorRuta((prev) => {
-        const nuevosBloques = prev[rutasExpandida].map((bloque) =>
-          bloque._id === bloqueEditando ? bloqueActualizado : bloque
-        );
-        return { ...prev, [rutasExpandida]: nuevosBloques };
+        const bloquesActuales = prev[rutasExpandida] || [];
+
+        if (isEditando) {
+          const nuevosBloques = bloquesActuales.map((bloque) =>
+            bloque._id === bloqueEditando ? bloqueGuardado : bloque
+          );
+          return { ...prev, [rutasExpandida]: nuevosBloques };
+        } else {
+          return { ...prev, [rutasExpandida]: [...bloquesActuales, bloqueGuardado] };
+        }
       });
+
+      showToast(
+        isEditando ? 'Bloque actualizado' : 'Bloque creado',
+        isEditando
+          ? 'Los cambios fueron guardados correctamente'
+          : 'El nuevo bloque fue creado exitosamente'
+      );
 
       setModalEditarBloqueVisible(false);
       setBloqueEditando(null);
     } catch (err) {
       console.error(err);
-      alert('Error al guardar bloque');
+      showToast('Error', err.message || 'No se pudo guardar el bloque', true);
     }
   };
 
@@ -246,6 +290,22 @@ const Rutas = () => {
                       {rutasExpandida === ruta._id && bloquesPorRuta[ruta._id] && (
                         <tr>
                           <td colSpan="4">
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                              <h6 className="mb-0">Bloques de esta ruta</h6>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBloqueEditando(null);
+                                  setFormBloque({ name: '', segments: [] });
+                                  setRutasExpandida(ruta._id); // asegúrate de mantener esta ruta expandida
+                                  setModalEditarBloqueVisible(true);
+                                }}
+                              >
+                                <i className="bi bi-plus-circle me-1"></i> Nuevo bloque
+                              </button>
+                            </div>
+
                             {bloquesPorRuta[ruta._id].map((bloque) => (
                               <div key={bloque._id} className="mb-3 p-2 border rounded bg-light">
                                 <div className="d-flex justify-content-between align-items-center mb-2">
@@ -258,9 +318,7 @@ const Rutas = () => {
                                         setBloqueEditando(bloque._id);
                                         setFormBloque({
                                           name: bloque.name,
-                                          segments: bloque.segments.map((seg) => ({
-                                            ...seg,
-                                          })),
+                                          segments: bloque.segments.map((seg) => ({ ...seg })),
                                         });
                                         setModalEditarBloqueVisible(true);
                                       }}
@@ -270,11 +328,26 @@ const Rutas = () => {
 
                                     <button
                                       className="btn btn-sm btn-danger"
-                                      onClick={(e) => {
+                                      onClick={async (e) => {
                                         e.stopPropagation();
-                                        // Aquí iría tu lógica de eliminación del bloque
-                                        if (window.confirm('¿Estás seguro de eliminar este bloque?')) {
-                                          console.log("Eliminar bloque:", bloque._id);
+                                        if (!window.confirm('¿Estás seguro de eliminar este bloque?')) return;
+
+                                        try {
+                                          const res = await fetch(`https://boletos.dev-wit.com/api/blocks/${bloque._id}`, {
+                                            method: 'DELETE',
+                                          });
+
+                                          if (!res.ok) throw new Error('Error en la respuesta del servidor');
+
+                                          setBloquesPorRuta((prev) => {
+                                            const nuevosBloques = prev[ruta._id].filter((b) => b._id !== bloque._id);
+                                            return { ...prev, [ruta._id]: nuevosBloques };
+                                          });
+
+                                          showToast('Bloque eliminado', 'El bloque fue eliminado correctamente');
+                                        } catch (err) {
+                                          console.error(err);
+                                          showToast('Error', 'No se pudo eliminar el bloque', true);
                                         }
                                       }}
                                     >
@@ -346,43 +419,104 @@ const Rutas = () => {
               </button>
             </>
           }
-        >
+        >      
           <div className="mb-3">
-            <label className="form-label">Nombre del bloque</label>
+            <label className="form-label fw-bold">Nombre del bloque</label>
             <input
               type="text"
               className="form-control"
               value={formBloque.name}
               onChange={(e) => setFormBloque({ ...formBloque, name: e.target.value })}
+              placeholder="Ej: Bloque Norte-Sur"
             />
           </div>
 
           <div>
-            <label className="form-label">Segmentos</label>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <label className="form-label fw-bold">Segmentos del bloque</label>
+              <button
+                className="btn btn-sm btn-success"
+                onClick={() =>
+                  setFormBloque({
+                    ...formBloque,
+                    segments: [
+                      ...formBloque.segments,
+                      { from: '', to: '', order: formBloque.segments.length + 1 },
+                    ],
+                  })
+                }
+              >
+                <i className="bi bi-plus-circle me-1"></i> Añadir segmento
+              </button>
+            </div>
+
+            {formBloque.segments.length === 0 && (
+              <p className="text-muted fst-italic">No hay segmentos agregados.</p>
+            )}
+
             {formBloque.segments.map((segment, index) => (
-              <div key={segment._id || index} className="d-flex gap-2 align-items-end mb-2">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Desde"
-                  value={segment.from}
-                  onChange={(e) => {
-                    const segs = [...formBloque.segments];
-                    segs[index].from = e.target.value;
-                    setFormBloque({ ...formBloque, segments: segs });
-                  }}
-                />
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Hasta"
-                  value={segment.to}
-                  onChange={(e) => {
-                    const segs = [...formBloque.segments];
-                    segs[index].to = e.target.value;
-                    setFormBloque({ ...formBloque, segments: segs });
-                  }}
-                />
+              <div
+                key={segment._id || index}
+                className="border rounded p-3 mb-2 bg-light-subtle position-relative"
+              >
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <span className="badge bg-primary">Segmento #{index + 1}</span>
+                </div>
+
+                <div className="d-flex gap-2 align-items-end">
+                  <div className="flex-fill">
+                    <label className="form-label">Desde</label>
+                    <select
+                      className="form-select"
+                      value={segment.from}
+                      onChange={(e) => {
+                        const segs = [...formBloque.segments];
+                        segs[index].from = e.target.value;
+                        setFormBloque({ ...formBloque, segments: segs });
+                      }}
+                    >
+                      <option value="">Seleccionar ciudad</option>
+                      {ciudades.map((ciudad) => (
+                        <option key={ciudad._id} value={ciudad.name}>
+                          {ciudad.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex-fill">
+                    <label className="form-label">Hasta</label>
+                    <select
+                      className="form-select"
+                      value={segment.to}
+                      onChange={(e) => {
+                        const segs = [...formBloque.segments];
+                        segs[index].to = e.target.value;
+                        setFormBloque({ ...formBloque, segments: segs });
+                      }}
+                    >
+                      <option value="">Seleccionar ciudad</option>
+                      {ciudades.map((ciudad) => (
+                        <option key={ciudad._id} value={ciudad.name}>
+                          {ciudad.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      title="Eliminar segmento"
+                      onClick={() => {
+                        const segs = formBloque.segments.filter((_, i) => i !== index);
+                        setFormBloque({ ...formBloque, segments: segs });
+                      }}
+                    >
+                      <i className="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

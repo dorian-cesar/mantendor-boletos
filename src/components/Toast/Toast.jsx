@@ -81,6 +81,19 @@ export function showToast(title, message, isError = false) {
         background-color: #dc3545;
       }
 
+      .toast {
+        opacity: 0;
+        transform: translateY(-10px);
+        animation: toast-fade-in 0.3s ease forwards;
+      }
+
+      @keyframes toast-fade-in {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
       @keyframes toast-progress-animation {
         from { width: 100%; }
         to { width: 0%; }
