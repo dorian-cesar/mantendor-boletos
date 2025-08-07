@@ -5,6 +5,7 @@ import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
 import { showToast } from '@components/Toast/Toast';
 import SeatMapVisualizer from '@components/SeatMapVisualizer/SeatMapVisualizer';
+import Swal from 'sweetalert2';
 
 const Layout = () => {
   const [layouts, setLayouts] = useState([]);
@@ -60,12 +61,25 @@ const Layout = () => {
 
 
   const handleEliminar = async (name) => {
-    if (!window.confirm('¿Estás seguro de eliminar este layout de servicio?')) return;
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: '¿Estás seguro de eliminar este layout de servicio?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      confirmButtonColor: '#3085d6',
+      cancelButtonText: 'Cancelar',
+      cancelButtonColor: '#d33',
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       const res = await fetch(`https://boletos.dev-wit.com/api/layouts/${name}`, {
         method: 'DELETE',
       });
+      await showToast('Layout eliminado', 'El layout fue eliminado exitosamente.');
 
       if (!res.ok) throw new Error('Error al eliminar');
       setLayouts((prev) => prev.filter((t) => t.name !== name));
