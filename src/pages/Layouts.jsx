@@ -163,11 +163,21 @@ const Layout = () => {
 
       if (!res.ok) throw new Error('Error al crear layout');
       
-      const nuevoLayout = await res.json();
-      setLayouts([...layouts, nuevoLayout]);
-      showToast('Éxito', 'Layout creado correctamente');
+      await showToast('Éxito', 'Layout creado correctamente');
       setModalEditarVisible(false);
       setCurrentStep(1);
+
+      // Recarga la lista desde el backend
+      setCargando(true);
+      const resList = await fetch('https://boletos.dev-wit.com/api/layouts/');
+      const data = await resList.json();
+      setLayouts(data.map(layout => ({
+        ...layout,
+        floor1: layout.floor1,
+        floor2: layout.floor2
+      })));
+      setCargando(false);
+
     } catch (error) {
       console.error(error);
       showToast('Error', error.message, true);
