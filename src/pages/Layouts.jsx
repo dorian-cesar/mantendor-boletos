@@ -144,12 +144,17 @@ const Layout = () => {
     formLayout.pisos
   ]);
 
-  const handleGuardar = async () => {  
+  const handleGuardar = async () => {
     const capacidadCalculada =
       (parseInt(formLayout.rows_piso_1 || 0) * parseInt(formLayout.columns_piso_1 || 0)) +
       (formLayout.pisos === '2'
         ? parseInt(formLayout.rows_piso_2 || 0) * parseInt(formLayout.columns_piso_2 || 0)
         : 0);
+    
+    const rowsTotal = parseInt(formLayout.rows_piso_1 || 0) +
+      (formLayout.pisos === '2' ? parseInt(formLayout.rows_piso_2 || 0) : 0);
+    const columnsTotal = parseInt(formLayout.columns_piso_1 || 0) +
+      (formLayout.pisos === '2' ? parseInt(formLayout.columns_piso_2 || 0) : 0);
 
     const payload = {
       ...formLayout,
@@ -160,7 +165,9 @@ const Layout = () => {
       columns_piso_1: parseInt(formLayout.columns_piso_1),
       rows_piso_2: parseInt(formLayout.rows_piso_2),
       columns_piso_2: parseInt(formLayout.columns_piso_2),
-      capacidad: capacidadCalculada // <-- aquí se pasa automáticamente
+      capacidad: capacidadCalculada,
+      rows: rowsTotal,        
+      columns: columnsTotal   
     };
 
     try {
