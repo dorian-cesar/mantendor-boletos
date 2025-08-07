@@ -144,7 +144,13 @@ const Layout = () => {
     formLayout.pisos
   ]);
 
-  const handleGuardar = async () => {
+  const handleGuardar = async () => {  
+    const capacidadCalculada =
+      (parseInt(formLayout.rows_piso_1 || 0) * parseInt(formLayout.columns_piso_1 || 0)) +
+      (formLayout.pisos === '2'
+        ? parseInt(formLayout.rows_piso_2 || 0) * parseInt(formLayout.columns_piso_2 || 0)
+        : 0);
+
     const payload = {
       ...formLayout,
       floor1: seatMap.floor1,
@@ -154,7 +160,7 @@ const Layout = () => {
       columns_piso_1: parseInt(formLayout.columns_piso_1),
       rows_piso_2: parseInt(formLayout.rows_piso_2),
       columns_piso_2: parseInt(formLayout.columns_piso_2),
-      capacidad: parseInt(formLayout.capacidad)
+      capacidad: capacidadCalculada // <-- aquí se pasa automáticamente
     };
 
     try {
@@ -188,6 +194,13 @@ const Layout = () => {
   };
 
   const renderStepContent = () => {
+
+    const capacidadCalculada =
+      (parseInt(formLayout.rows_piso_1 || 0) * parseInt(formLayout.columns_piso_1 || 0)) +
+      (formLayout.pisos === '2'
+        ? parseInt(formLayout.rows_piso_2 || 0) * parseInt(formLayout.columns_piso_2 || 0)
+        : 0);
+
     switch (currentStep) {
       case 1:
         return (
@@ -319,29 +332,7 @@ const Layout = () => {
                   <option value="Ejecutivo">Ejecutivo</option>
                 </select>
               </div>
-            )}
-
-            <div className="col-md-6">
-              <label className="form-label">Capacidad Total*</label>
-              <input
-                type="number"
-                className="form-control"
-                min="1"
-                value={
-                  formLayout.capacidad !== undefined && formLayout.capacidad !== null && formLayout.capacidad !== ''
-                    ? formLayout.capacidad
-                    : (
-                        ((parseInt(formLayout.rows_piso_1 || 0) * parseInt(formLayout.columns_piso_1 || 0)) +
-                        (formLayout.pisos === '2'
-                          ? parseInt(formLayout.rows_piso_2 || 0) * parseInt(formLayout.columns_piso_2 || 0)
-                          : 0)
-                        ).toString()
-                      )
-                }
-                onChange={(e) => setFormLayout({ ...formLayout, capacidad: e.target.value })}
-                required
-              />
-            </div>
+            )}            
 
             <div className="col-12">
               <div className="card mt-3">
@@ -362,13 +353,19 @@ const Layout = () => {
                       </strong>
                     </li>
                     <li className="list-group-item d-flex justify-content-between">
-                      <span>Configuración:</span>
-                      <strong>{formLayout.rows || '0'} filas × {formLayout.columns || '0'} columnas</strong>
+                      <span>Capacidad:</span>
+                      <strong>{capacidadCalculada} asientos</strong>
                     </li>
                     <li className="list-group-item d-flex justify-content-between">
-                      <span>Capacidad:</span>
-                      <strong>{formLayout.capacidad || '0'} asientos</strong>
+                      <span>Tipo asiento 1:</span>
+                      <strong>{formLayout.tipo_Asiento_piso_1 || 'No definido'}</strong>
                     </li>
+                    {formLayout.pisos === '2' && (
+                      <li className="list-group-item d-flex justify-content-between">
+                        <span>Tipo asiento 2:</span>
+                        <strong>{formLayout.tipo_Asiento_piso_2 || 'No definido'}</strong>
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
