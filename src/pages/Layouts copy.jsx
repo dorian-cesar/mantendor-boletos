@@ -4,108 +4,33 @@ import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
 import { showToast } from '@components/Toast/Toast';
+import SeatMapVisualizer from '@components/SeatMapVisualizer/SeatMapVisualizer';
 
 const Layout = () => {
   const [layouts, setLayouts] = useState([]);
   const [cargando, setCargando] = useState(true);   
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [layoutEditando, setLayoutEditando] = useState(null);
-  const [formLayout, setFormLayout] = useState({ 
-    name: '',
-    pisos: '',
-    capacidad: '',
-    tipo_Asiento_piso_1: '',
-    tipo_Asiento_piso_2: '',
-    rows: '',
-    columns: '',
-    floor1: {
-      seatMap: [
-        ["1A", "1B", "", "1C", "1D"],
-        ["2A", "2B", "", "2C", "2D"],
-        ["3A", "3B", "", "3C", "3D"],
-        ["4A", "4B", "", "4C", "4D"],
-        ["5A", "5B", "", "5C", "5D"]
-      ]
-    },
-    floor2: {
-      seatMap: [
-        ["6A", "6B", "", "6C", "6D"],
-        ["7A", "7B", "", "7C", "7D"],
-        ["8A", "8B", "", "8C", "8D"],
-        ["9A", "9B", "", "9C", "9D"],
-        ["10A", "10B", "", "10C", "10D"],
-        ["11A", "11B", "", "11C", "11D"],
-        ["12A", "12B", "", "12C", "12D"]
-      ]
-    }
+  const [formLayout, setFormLayout] = useState({ name: '', pisos: '', capacidad: '', tipo_Asiento_piso_1: '', tipo_Asiento_piso_2: '' });
+  const [actualizando, setActualizando] = useState(false);  
+  const [currentStep, setCurrentStep] = useState(1);
+  const [seatMap, setSeatMap] = useState({
+    floor1: { seatMap: [] },
+    floor2: { seatMap: [] }
   });
-  const [actualizando, setActualizando] = useState(false);
-  const [layoutOriginal, setLayoutOriginal] = useState(null);
 
   const handleEditar = (layout) => {
     setLayoutEditando(layout.name);
-    setLayoutOriginal(layout);
     setFormLayout({ 
-      name: layout.name, 
-      rows: layout.rows,
-      columns: layout.columns,
-      pisos: layout.pisos, 
-      capacidad: layout.capacidad, 
-      tipo_Asiento_piso_1: layout.tipo_Asiento_piso_1, 
-      tipo_Asiento_piso_2: layout.tipo_Asiento_piso_2,
-      floor1: layout.floor1,
-      floor2: layout.floor2
-    });
+        name: layout.name, 
+        rows: layout.rows,
+        columns: layout.columns,
+        pisos: layout.pisos, 
+        capacidad: layout.capacidad, 
+        tipo_Asiento_piso_1: layout.tipo_Asiento_piso_1, 
+        tipo_Asiento_piso_2: layout.tipo_Asiento_piso_2});
     setModalEditarVisible(true);
-  };
-
-  const handleGuardar = async () => {
-    if (layoutEditando && layoutOriginal) {
-      const sinCambios = Object.keys(formLayout).every((key) => {
-        const original = layoutOriginal[key] ?? '';
-        const actual = formLayout[key] ?? '';
-        return JSON.stringify(original) === JSON.stringify(actual);
-      });
-      if (sinCambios) {
-        showToast('Sin cambios', 'No se realizaron modificaciones.');
-        setModalEditarVisible(false);
-        return;
-      }
-    }
-
-    const endpoint = layoutEditando
-      ? `https://boletos.dev-wit.com/api/layouts/${layoutEditando}`
-      : `https://boletos.dev-wit.com/api/layouts/`;
-
-    const metodo = layoutEditando ? 'PUT' : 'POST';
-
-    try {
-      const res = await fetch(endpoint, {
-        method: metodo,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formLayout),
-      });
-
-      if (!res.ok) throw new Error('Error al guardar layout de servicio');
-
-      const nuevo = await res.json();
-
-      setLayouts((prev) => {
-        if (layoutEditando) {
-          return prev.map((t) => (t.name === layoutEditando ? nuevo : t));
-        } else {
-          return [...prev, nuevo];
-        }
-      });
-
-      setModalEditarVisible(false);
-      setLayoutEditando(null);
-      setLayoutOriginal(null);
-    } catch (err) {
-      console.error(err);
-      alert('Error al guardar layout de servicio');
-    }
-  };
+  };    
 
   const handleEliminar = async (name) => {
     if (!window.confirm('¿Estás seguro de eliminar este layout de servicio?')) return;
@@ -138,6 +63,218 @@ const Layout = () => {
 
     fetchLayouts();
   }, []);
+
+  // Generar mapa de asientos automáticamente al cambiar filas/columnas
+  useEffect(() => {
+    if (formLayout.rows && formLayout.columns) {
+      const generateSeatMap = (floor, rows, cols, startNum = 1) => {
+        return Array(parseInt(rows)).fill().map((_, rowIdx) => 
+          Array(parseInt(cols)).fill().map((_, colIdx) => {
+            const rowNum = rowIdx + startNum;
+            const colLetter = String.fromCharCode(65 + colIdx);
+            return `${rowNum}${colLetter}`;
+          })
+        );
+      };
+
+      const floor1Rows = formLayout.pisos === 2 ? Math.ceil(formLayout.rows / 2) : formLayout.rows;
+      const floor1Map = generateSeatMap('floor1', floor1Rows, formLayout.columns, 1);
+      
+      let floor2Map = [];
+      if (formLayout.pisos === 2) {
+        const floor2Rows = formLayout.rows - floor1Rows;
+        floor2Map = generateSeatMap('floor2', floor2Rows, formLayout.columns, floor1Rows + 1);
+      }
+
+      setSeatMap({
+        floor1: { seatMap: floor1Map },
+        floor2: { seatMap: floor2Map }
+      });
+    }
+  }, [formLayout.rows, formLayout.columns, formLayout.pisos]);
+
+  const handleGuardar = async () => {
+    const payload = {
+      ...formLayout,
+      ...seatMap,
+      pisos: parseInt(formLayout.pisos),
+      rows: parseInt(formLayout.rows),
+      columns: parseInt(formLayout.columns),
+      capacidad: parseInt(formLayout.capacidad)
+    };
+
+    try {
+      const res = await fetch('https://boletos.dev-wit.com/api/layouts/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('Error al crear layout');
+      
+      const nuevoLayout = await res.json();
+      setLayouts([...layouts, nuevoLayout]);
+      showToast('Éxito', 'Layout creado correctamente');
+      setModalEditarVisible(false);
+      setCurrentStep(1);
+    } catch (error) {
+      console.error(error);
+      showToast('Error', error.message, true);
+    }
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label">Nombre del Layout*</label>
+              <input
+                className="form-control"
+                value={formLayout.name}
+                onChange={(e) => setFormLayout({...formLayout, name: e.target.value})}
+                placeholder="Ej: bus_2pisos_48Seat"
+                required
+              />
+            </div>
+            
+            <div className="col-md-6">
+              <label className="form-label">Número de Pisos*</label>
+              <select
+                className="form-select"
+                value={formLayout.pisos}
+                onChange={(e) => setFormLayout({...formLayout, pisos: e.target.value})}
+                required
+              >
+                <option value="">Seleccionar...</option>
+                <option value="1">1 Piso</option>
+                <option value="2">2 Pisos</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label">Filas Totales*</label>
+              <input
+                type="number"
+                className="form-control"
+                min="1"
+                value={formLayout.rows}
+                onChange={(e) => setFormLayout({...formLayout, rows: e.target.value})}
+                required
+              />
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label">Columnas*</label>
+              <input
+                type="number"
+                className="form-control"
+                min="1"
+                max="6"
+                value={formLayout.columns}
+                onChange={(e) => setFormLayout({...formLayout, columns: e.target.value})}
+                required
+              />
+            </div>
+
+            <div className="col-12">
+              <div className="card mt-3">
+                <div className="card-body">
+                  <h5 className="card-title">Vista Previa</h5>
+                  {formLayout.rows && formLayout.columns ? (
+                    <SeatMapVisualizer 
+                      seatMap={seatMap} 
+                      floors={formLayout.pisos} 
+                    />
+                  ) : (
+                    <p className="text-muted">Configura las filas y columnas para ver la vista previa</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 2:
+        return (
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label">Tipo de Asiento - Piso 1*</label>
+              <select
+                className="form-select"
+                value={formLayout.tipo_Asiento_piso_1}
+                onChange={(e) => setFormLayout({...formLayout, tipo_Asiento_piso_1: e.target.value})}
+                required
+              >
+                <option value="">Seleccionar...</option>
+                <option value="Salón-Cama">Salón Cama</option>
+                <option value="Semi-Cama">Semi Cama</option>
+                <option value="Ejecutivo">Ejecutivo</option>
+              </select>
+            </div>
+
+            {formLayout.pisos === '2' && (
+              <div className="col-md-6">
+                <label className="form-label">Tipo de Asiento - Piso 2*</label>
+                <select
+                  className="form-select"
+                  value={formLayout.tipo_Asiento_piso_2}
+                  onChange={(e) => setFormLayout({...formLayout, tipo_Asiento_piso_2: e.target.value})}
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="Salón-Cama">Salón Cama</option>
+                  <option value="Semi-Cama">Semi Cama</option>
+                  <option value="Ejecutivo">Ejecutivo</option>
+                </select>
+              </div>
+            )}
+
+            <div className="col-md-6">
+              <label className="form-label">Capacidad Total*</label>
+              <input
+                type="number"
+                className="form-control"
+                min="1"
+                value={formLayout.capacidad || (formLayout.rows * formLayout.columns * formLayout.pisos)}
+                onChange={(e) => setFormLayout({...formLayout, capacidad: e.target.value})}
+                required
+              />
+            </div>
+
+            <div className="col-12">
+              <div className="card mt-3">
+                <div className="card-body">
+                  <h5 className="card-title">Resumen</h5>
+                  <ul className="list-group list-group-flush">
+                    <li className="list-group-item d-flex justify-content-between">
+                      <span>Nombre:</span>
+                      <strong>{formLayout.name || 'No definido'}</strong>
+                    </li>
+                    <li className="list-group-item d-flex justify-content-between">
+                      <span>Pisos:</span>
+                      <strong>{formLayout.pisos || '0'}</strong>
+                    </li>
+                    <li className="list-group-item d-flex justify-content-between">
+                      <span>Configuración:</span>
+                      <strong>{formLayout.rows || '0'} filas × {formLayout.columns || '0'} columnas</strong>
+                    </li>
+                    <li className="list-group-item d-flex justify-content-between">
+                      <span>Capacidad:</span>
+                      <strong>{formLayout.capacidad || '0'} asientos</strong>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
   
   return (
     <div className="dashboard-container">
@@ -263,119 +400,72 @@ const Layout = () => {
         </div>
       </main>
 
+      {/* MODAL MEJORADO */}
       <ModalBase
         visible={modalEditarVisible}
         title={layoutEditando ? 'Editar Layout' : 'Nuevo Layout'}
         onClose={() => {
           setModalEditarVisible(false);
           setLayoutEditando(null);
+          setCurrentStep(1);
         }}
+        size="lg"
         footer={
-          <>
-            <button className="btn btn-secondary" onClick={() => setModalEditarVisible(false)}>
-              Cancelar
-            </button>
-            <button className="btn btn-primary" onClick={handleGuardar}>
-              Guardar Cambios
-            </button>
-          </>
+          <div className="d-flex justify-content-between w-100">
+            {currentStep > 1 ? (
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setCurrentStep(currentStep - 1)}
+              >
+                <i className="bi bi-arrow-left me-2"></i> Anterior
+              </button>
+            ) : (
+              <div></div>
+            )}
+            
+            {currentStep < 2 ? (
+              <button 
+                className="btn btn-primary"
+                onClick={() => setCurrentStep(currentStep + 1)}
+                disabled={!formLayout.name || !formLayout.pisos || !formLayout.rows || !formLayout.columns}
+              >
+                Siguiente <i className="bi bi-arrow-right ms-2"></i>
+              </button>
+            ) : (
+              <button 
+                className="btn btn-success"
+                onClick={handleGuardar}
+                disabled={!formLayout.tipo_Asiento_piso_1 || (!formLayout.tipo_Asiento_piso_2 && formLayout.pisos === '2')}
+              >
+                <i className="bi bi-check-circle me-2"></i> Guardar Layout
+              </button>
+            )}
+          </div>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
-          <div className="mb-3">
-            <label className="form-label">Nombre</label>
-            <input
-              className="form-control"
-              value={formLayout.name}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, name: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Pisos</label>
-            <input
-              className="form-control"
-              type="number"
-              value={formLayout.pisos}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, pisos: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Filas</label>
-            <input
-              className="form-control"
-              type="number"
-              value={formLayout.rows}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, rows: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Columnas</label>
-            <input
-              className="form-control"
-              type="number"
-              value={formLayout.columns}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, columns: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Capacidad</label>
-            <input
-              className="form-control"
-              type="number"
-              value={formLayout.capacidad}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, capacidad: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Tipo Asiento Piso 1</label>
-            <input
-              className="form-control"
-              value={formLayout.tipo_Asiento_piso_1}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, tipo_Asiento_piso_1: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Tipo Asiento Piso 2</label>
-            <input
-              className="form-control"
-              value={formLayout.tipo_Asiento_piso_2}
-              onChange={(e) => setFormLayout((prev) => ({ ...prev, tipo_Asiento_piso_2: e.target.value }))}
-            />
-          </div>
+        <div className="mb-4">
+          <ul className="nav nav-pills nav-justified">
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${currentStep === 1 ? 'active' : ''}`}
+                onClick={() => setCurrentStep(1)}
+              >
+                <i className="bi bi-gear me-2"></i> Configuración
+              </button>
+            </li>
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${currentStep === 2 ? 'active' : ''}`}
+                onClick={() => setCurrentStep(2)}
+                disabled={!formLayout.name || !formLayout.pisos || !formLayout.rows || !formLayout.columns}
+              >
+                <i className="bi bi-card-checklist me-2"></i> Detalles
+              </button>
+            </li>
+          </ul>
         </div>
 
-        <div className="mt-3">
-          <label className="form-label font-bold">Distribución Visual de Asientos</label>
-          <div className="text-sm mb-2">(No editable en esta versión)</div>
-          <div className="grid grid-cols-2 gap-5">
-            <div>
-                <p className="font-medium">Piso 1</p>
-                {formLayout.floor1?.seatMap?.map((row, i) => (
-                    <div key={i} className="grid grid-cols-5 gap-1">
-                    {row.map((seat, j) => (
-                        <div key={j} className="text-center border rounded px-2 py-1 bg-light">
-                        {seat || ' '}
-                        </div>
-                    ))}
-                    </div>
-                ))}
-            </div>
-
-            <div>
-                <p className="font-medium">Piso 2</p>
-                {formLayout.floor2?.seatMap?.map((row, i) => (
-                    <div key={i} className="grid grid-cols-5 gap-1">
-                    {row.map((seat, j) => (
-                        <div key={j} className="text-center border rounded px-2 py-1 bg-light">
-                        {seat || ' '}
-                        </div>
-                    ))}
-                    </div>
-                ))}
-            </div>
-
-          </div>
-        </div>
+        {renderStepContent()}
       </ModalBase>
     </div>
   );
