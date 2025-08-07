@@ -88,22 +88,26 @@ const Layout = () => {
 
   // Generar mapa de asientos automáticamente al cambiar filas/columnas
   useEffect(() => {
-    if (layoutEditando) return; // No generar nada si se está editando
+    if (layoutEditando) return; // No generar si estás editando
 
     if (formLayout.rows && formLayout.columns) {
+      const totalRows = parseInt(formLayout.rows);
+      const totalCols = parseInt(formLayout.columns);
+      const pisos = parseInt(formLayout.pisos);
+
       const generateSeatMap = (rows, cols, startNum = 1) => {
-        return Array.from({ length: parseInt(rows) }, (_, rowIdx) =>
-          Array.from({ length: parseInt(cols) }, (_, colIdx) => {
+        return Array.from({ length: rows }, (_, rowIdx) =>
+          Array.from({ length: cols }, (_, colIdx) => {
             const rowNum = rowIdx + startNum;
-            const colLetter = String.fromCharCode(65 + colIdx);
+
+            // Insertar pasillo si hay 5 columnas y esta es la columna del medio
+            if (cols === 5 && colIdx === 2) return ""; // columna índice 2 es la central
+            
+            const colLetter = String.fromCharCode(65 + colIdx - (cols === 5 && colIdx > 2 ? 1 : 0));
             return `${rowNum}${colLetter}`;
           })
         );
       };
-
-      const totalRows = parseInt(formLayout.rows);
-      const totalCols = parseInt(formLayout.columns);
-      const pisos = parseInt(formLayout.pisos);
 
       const floor1Rows = pisos === 2 ? Math.ceil(totalRows / 2) : totalRows;
       const floor2Rows = pisos === 2 ? totalRows - floor1Rows : 0;
@@ -119,6 +123,7 @@ const Layout = () => {
       });
     }
   }, [formLayout.rows, formLayout.columns, formLayout.pisos, layoutEditando]);
+
 
   const handleGuardar = async () => {
     const payload = {
