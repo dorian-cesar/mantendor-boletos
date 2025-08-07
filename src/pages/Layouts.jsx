@@ -540,7 +540,13 @@ const Layout = () => {
               <button 
                 className="btn btn-primary"
                 onClick={() => setCurrentStep(currentStep + 1)}
-                disabled={!formLayout.name || !formLayout.pisos || !formLayout.rows || !formLayout.columns}
+                disabled={
+                  !formLayout.name ||
+                  !formLayout.pisos ||
+                  !formLayout.rows_piso_1 ||
+                  !formLayout.columns_piso_1 ||
+                  (formLayout.pisos === '2' && (!formLayout.rows_piso_2 || !formLayout.columns_piso_2))
+                }
               >
                 Siguiente <i className="bi bi-arrow-right ms-2"></i>
               </button>
@@ -570,7 +576,13 @@ const Layout = () => {
               <button 
                 className={`nav-link ${currentStep === 2 ? 'active' : ''}`}
                 onClick={() => setCurrentStep(2)}
-                disabled={!formLayout.name || !formLayout.pisos || !formLayout.rows || !formLayout.columns}
+                disabled={
+                  !formLayout.name ||
+                  !formLayout.pisos ||
+                  !formLayout.rows_piso_1 ||
+                  !formLayout.columns_piso_1 ||
+                  (formLayout.pisos === '2' && (!formLayout.rows_piso_2 || !formLayout.columns_piso_2))
+                }
               >
                 <i className="bi bi-card-checklist me-2"></i> Detalles
               </button>
