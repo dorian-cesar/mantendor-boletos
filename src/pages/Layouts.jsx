@@ -23,7 +23,7 @@ const Layout = () => {
     columns_piso_1: '',
     rows_piso_2: '',
     columns_piso_2: ''
-  });
+  });  
 
   const [actualizando, setActualizando] = useState(false);  
   const [currentStep, setCurrentStep] = useState(1);
@@ -31,6 +31,18 @@ const Layout = () => {
     floor1: { seatMap: [] },
     floor2: { seatMap: [] }
   });
+
+  const contarAsientos = (seatMap) => {
+    if (!seatMap || !Array.isArray(seatMap)) return 0;
+    return seatMap.reduce(
+      (total, fila) => total + fila.filter(asiento => asiento !== '').length,
+      0
+    );
+  };
+
+  const capacidadCalculada =
+  contarAsientos(seatMap.floor1.seatMap) +
+  (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
 
   const handleEditar = async (layout) => {
     try {
@@ -146,10 +158,8 @@ const Layout = () => {
 
   const handleGuardar = async () => {
     const capacidadCalculada =
-      (parseInt(formLayout.rows_piso_1 || 0) * parseInt(formLayout.columns_piso_1 || 0)) +
-      (formLayout.pisos === '2'
-        ? parseInt(formLayout.rows_piso_2 || 0) * parseInt(formLayout.columns_piso_2 || 0)
-        : 0);
+    contarAsientos(seatMap.floor1.seatMap) +
+    (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
     
     const rowsTotal = parseInt(formLayout.rows_piso_1 || 0) +
       (formLayout.pisos === '2' ? parseInt(formLayout.rows_piso_2 || 0) : 0);
@@ -166,8 +176,8 @@ const Layout = () => {
       rows_piso_2: parseInt(formLayout.rows_piso_2),
       columns_piso_2: parseInt(formLayout.columns_piso_2),
       capacidad: capacidadCalculada,
-      rows: rowsTotal,        
-      columns: columnsTotal   
+      rows: rowsTotal,
+      columns: columnsTotal
     };
 
     try {
@@ -203,10 +213,8 @@ const Layout = () => {
   const renderStepContent = () => {
 
     const capacidadCalculada =
-      (parseInt(formLayout.rows_piso_1 || 0) * parseInt(formLayout.columns_piso_1 || 0)) +
-      (formLayout.pisos === '2'
-        ? parseInt(formLayout.rows_piso_2 || 0) * parseInt(formLayout.columns_piso_2 || 0)
-        : 0);
+    contarAsientos(seatMap.floor1.seatMap) +
+    (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
 
     switch (currentStep) {
       case 1:
