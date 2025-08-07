@@ -88,41 +88,36 @@ const Layout = () => {
 
   // Generar mapa de asientos automáticamente al cambiar filas/columnas
   useEffect(() => {
-    if (layoutEditando) return; // No generar si estás editando
+    if (!formLayout.rows || !formLayout.columns) return;
 
-    if (formLayout.rows && formLayout.columns) {
-      const totalRows = parseInt(formLayout.rows);
-      const totalCols = parseInt(formLayout.columns);
-      const pisos = parseInt(formLayout.pisos);
+    const totalRows = parseInt(formLayout.rows);
+    const totalCols = parseInt(formLayout.columns);
+    const pisos = parseInt(formLayout.pisos);
 
-      const generateSeatMap = (rows, cols, startNum = 1) => {
-        return Array.from({ length: rows }, (_, rowIdx) =>
-          Array.from({ length: cols }, (_, colIdx) => {
-            const rowNum = rowIdx + startNum;
+    const generateSeatMap = (rows, cols, startNum = 1) => {
+      return Array.from({ length: rows }, (_, rowIdx) =>
+        Array.from({ length: cols }, (_, colIdx) => {
+          const rowNum = rowIdx + startNum;
+          if (cols === 5 && colIdx === 2) return ""; // pasillo
+          const colLetter = String.fromCharCode(65 + colIdx - (cols === 5 && colIdx > 2 ? 1 : 0));
+          return `${rowNum}${colLetter}`;
+        })
+      );
+    };
 
-            // Insertar pasillo si hay 5 columnas y esta es la columna del medio
-            if (cols === 5 && colIdx === 2) return ""; // columna índice 2 es la central
-            
-            const colLetter = String.fromCharCode(65 + colIdx - (cols === 5 && colIdx > 2 ? 1 : 0));
-            return `${rowNum}${colLetter}`;
-          })
-        );
-      };
+    const floor1Rows = pisos === 2 ? Math.ceil(totalRows / 2) : totalRows;
+    const floor2Rows = pisos === 2 ? totalRows - floor1Rows : 0;
 
-      const floor1Rows = pisos === 2 ? Math.ceil(totalRows / 2) : totalRows;
-      const floor2Rows = pisos === 2 ? totalRows - floor1Rows : 0;
+    const floor1Map = generateSeatMap(floor1Rows, totalCols, 1);
+    const floor2Map = pisos === 2
+      ? generateSeatMap(floor2Rows, totalCols, floor1Rows + 1)
+      : [];
 
-      const floor1Map = generateSeatMap(floor1Rows, totalCols, 1);
-      const floor2Map = pisos === 2
-        ? generateSeatMap(floor2Rows, totalCols, floor1Rows + 1)
-        : [];
-
-      setSeatMap({
-        floor1: { seatMap: floor1Map },
-        floor2: { seatMap: floor2Map }
-      });
-    }
-  }, [formLayout.rows, formLayout.columns, formLayout.pisos, layoutEditando]);
+    setSeatMap({
+      floor1: { seatMap: floor1Map },
+      floor2: { seatMap: floor2Map }
+    });
+  }, [formLayout.rows, formLayout.columns, formLayout.pisos]);
 
 
   const handleGuardar = async () => {
