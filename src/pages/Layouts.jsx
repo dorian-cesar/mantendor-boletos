@@ -11,7 +11,17 @@ const Layout = () => {
   const [cargando, setCargando] = useState(true);   
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [layoutEditando, setLayoutEditando] = useState(null);
-  const [formLayout, setFormLayout] = useState({ name: '', pisos: '', capacidad: '', tipo_Asiento_piso_1: '', tipo_Asiento_piso_2: '' });
+
+  const [formLayout, setFormLayout] = useState({
+    name: '',
+    rows: '',
+    columns: '',
+    pisos: '',
+    capacidad: '',
+    tipo_Asiento_piso_1: '',
+    tipo_Asiento_piso_2: ''
+  });
+
   const [actualizando, setActualizando] = useState(false);  
   const [currentStep, setCurrentStep] = useState(1);
   const [seatMap, setSeatMap] = useState({
@@ -371,7 +381,15 @@ const Layout = () => {
                 className="btn btn-primary btn-sm"
                 onClick={() => {
                   setLayoutEditando(null);
-                  setFormLayout({ name: '', description: '' });
+                  setFormLayout({
+                    name: '',
+                    rows: '',
+                    columns: '',
+                    pisos: '',
+                    capacidad: '',
+                    tipo_Asiento_piso_1: '',
+                    tipo_Asiento_piso_2: ''
+                  });
                   setModalEditarVisible(true);
                 }}
               >
