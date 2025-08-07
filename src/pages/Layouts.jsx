@@ -19,18 +19,35 @@ const Layout = () => {
     floor2: { seatMap: [] }
   });
 
-  const handleEditar = (layout) => {
-    setLayoutEditando(layout.name);
-    setFormLayout({ 
-        name: layout.name, 
-        rows: layout.rows,
-        columns: layout.columns,
-        pisos: layout.pisos, 
-        capacidad: layout.capacidad, 
-        tipo_Asiento_piso_1: layout.tipo_Asiento_piso_1, 
-        tipo_Asiento_piso_2: layout.tipo_Asiento_piso_2});
-    setModalEditarVisible(true);
-  };    
+  const handleEditar = async (layout) => {
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/layouts/${layout.name}`);
+      if (!res.ok) throw new Error('No se pudo cargar el layout completo');
+      const fullLayout = await res.json();
+
+      setLayoutEditando(fullLayout.name);
+      setFormLayout({ 
+        name: fullLayout.name, 
+        rows: fullLayout.rows,
+        columns: fullLayout.columns,
+        pisos: fullLayout.pisos, 
+        capacidad: fullLayout.capacidad, 
+        tipo_Asiento_piso_1: fullLayout.tipo_Asiento_piso_1, 
+        tipo_Asiento_piso_2: fullLayout.tipo_Asiento_piso_2
+      });
+
+      setSeatMap({
+        floor1: fullLayout.floor1 || { seatMap: [] },
+        floor2: fullLayout.floor2 || { seatMap: [] }
+      });
+
+      setModalEditarVisible(true);
+    } catch (error) {
+      console.error('Error al cargar layout completo:', error);
+      showToast('Error', 'No se pudo cargar el layout completo', true);
+    }
+  };
+
 
   const handleEliminar = async (name) => {
     if (!window.confirm('¿Estás seguro de eliminar este layout de servicio?')) return;
@@ -53,7 +70,12 @@ const Layout = () => {
       try {
         const res = await fetch('https://boletos.dev-wit.com/api/layouts/');
         const data = await res.json();
-        setLayouts(data);
+        setLayouts(data.map(layout => ({
+          ...layout,
+          floor1: layout.floor1,
+          floor2: layout.floor2
+        })));
+
       } catch (error) {
         console.error('Error al cargar layout de servicio:', error);
       } finally {
@@ -66,10 +88,12 @@ const Layout = () => {
 
   // Generar mapa de asientos automáticamente al cambiar filas/columnas
   useEffect(() => {
+    if (layoutEditando) return; // No generar nada si se está editando
+
     if (formLayout.rows && formLayout.columns) {
-      const generateSeatMap = (floor, rows, cols, startNum = 1) => {
-        return Array(parseInt(rows)).fill().map((_, rowIdx) => 
-          Array(parseInt(cols)).fill().map((_, colIdx) => {
+      const generateSeatMap = (rows, cols, startNum = 1) => {
+        return Array.from({ length: parseInt(rows) }, (_, rowIdx) =>
+          Array.from({ length: parseInt(cols) }, (_, colIdx) => {
             const rowNum = rowIdx + startNum;
             const colLetter = String.fromCharCode(65 + colIdx);
             return `${rowNum}${colLetter}`;
@@ -77,21 +101,24 @@ const Layout = () => {
         );
       };
 
-      const floor1Rows = formLayout.pisos === 2 ? Math.ceil(formLayout.rows / 2) : formLayout.rows;
-      const floor1Map = generateSeatMap('floor1', floor1Rows, formLayout.columns, 1);
-      
-      let floor2Map = [];
-      if (formLayout.pisos === 2) {
-        const floor2Rows = formLayout.rows - floor1Rows;
-        floor2Map = generateSeatMap('floor2', floor2Rows, formLayout.columns, floor1Rows + 1);
-      }
+      const totalRows = parseInt(formLayout.rows);
+      const totalCols = parseInt(formLayout.columns);
+      const pisos = parseInt(formLayout.pisos);
+
+      const floor1Rows = pisos === 2 ? Math.ceil(totalRows / 2) : totalRows;
+      const floor2Rows = pisos === 2 ? totalRows - floor1Rows : 0;
+
+      const floor1Map = generateSeatMap(floor1Rows, totalCols, 1);
+      const floor2Map = pisos === 2
+        ? generateSeatMap(floor2Rows, totalCols, floor1Rows + 1)
+        : [];
 
       setSeatMap({
         floor1: { seatMap: floor1Map },
         floor2: { seatMap: floor2Map }
       });
     }
-  }, [formLayout.rows, formLayout.columns, formLayout.pisos]);
+  }, [formLayout.rows, formLayout.columns, formLayout.pisos, layoutEditando]);
 
   const handleGuardar = async () => {
     const payload = {

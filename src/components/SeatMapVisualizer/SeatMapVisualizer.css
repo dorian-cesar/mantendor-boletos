@@ -1,5 +1,7 @@
 .seat-map-container {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .floor-section {
@@ -24,7 +26,7 @@
 .seat-row {
   display: flex;
   gap: 8px;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .seat {
@@ -38,6 +40,7 @@
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .seat.occupied {
@@ -50,4 +53,21 @@
   background-color: #e9ecef;
   color: #6c757d;
   border: 1px dashed #adb5bd;
+}
+
+.seat.aisle {
+  background-color: transparent;
+  border: none;
+  cursor: default;
+  width: 20px; /* Más estrecho que un asiento normal */
+  position: relative;
+}
+
+.seat.aisle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 2px dashed #ccc;
 }
