@@ -17,7 +17,7 @@ const Layout = () => {
     name: '',
     rows: '',
     columns: '',
-    pisos: '',
+    pisos: '1', // Selecciona 1 piso por defecto
     capacidad: '',
     tipo_Asiento_piso_1: '',
     tipo_Asiento_piso_2: ''
@@ -409,7 +409,7 @@ const Layout = () => {
                     name: '',
                     rows: '',
                     columns: '',
-                    pisos: '',
+                    pisos: '1', // Selecciona 1 piso por defecto
                     capacidad: '',
                     tipo_Asiento_piso_1: '',
                     tipo_Asiento_piso_2: ''
