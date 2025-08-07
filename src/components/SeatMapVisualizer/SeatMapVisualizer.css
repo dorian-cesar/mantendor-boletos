@@ -71,3 +71,13 @@
   left: 50%;
   border-left: 2px dashed #ccc;
 }
+
+.floors-row {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.floor-section {
+  min-width: 200px;
+}
