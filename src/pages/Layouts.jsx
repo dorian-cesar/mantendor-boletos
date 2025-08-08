@@ -5,6 +5,7 @@ import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
 import { showToast } from '@components/Toast/Toast';
 import SeatMapVisualizer from '@components/SeatMapVisualizer/SeatMapVisualizer';
+import SeatGridEditor from '../components/SeatGridEditor/SeatGridEditor';
 import Swal from 'sweetalert2';
 
 const Layout = () => {
@@ -12,6 +13,8 @@ const Layout = () => {
   const [cargando, setCargando] = useState(true);   
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [layoutEditando, setLayoutEditando] = useState(null);
+  const [modoCreacion, setModoCreacion] = useState(true);
+
 
   const [formLayout, setFormLayout] = useState({
     name: '',
@@ -35,8 +38,24 @@ const Layout = () => {
   const contarAsientos = (seatMap) => {
     if (!seatMap || !Array.isArray(seatMap)) return 0;
     return seatMap.reduce(
-      (total, fila) => total + fila.filter(asiento => asiento !== '').length,
+      (total, fila) =>
+        total +
+        fila.filter(asiento => asiento && typeof asiento === 'object' && asiento.type === 'asiento').length,
       0
+    );
+  };
+  const normalizarSeatMap = (rawMap) => {
+    if (!Array.isArray(rawMap)) return [];
+
+    return rawMap.map(row =>
+      row.map(cell => {
+        if (typeof cell === 'object' && cell !== null) return cell;
+        if (typeof cell === 'string') {
+          if (cell.trim() === '') return { type: 'pasillo', label: '' };
+          return { type: 'asiento', label: cell };
+        }
+        return { type: 'pasillo', label: '' }; // fallback
+      })
     );
   };
 
@@ -62,8 +81,8 @@ const Layout = () => {
       });
 
       setSeatMap({
-        floor1: fullLayout.floor1 || { seatMap: [] },
-        floor2: fullLayout.floor2 || { seatMap: [] }
+        floor1: { seatMap: normalizarSeatMap(fullLayout.floor1?.seatMap || []) },
+        floor2: { seatMap: normalizarSeatMap(fullLayout.floor2?.seatMap || []) }
       });
 
       setModalEditarVisible(true);
@@ -124,17 +143,24 @@ const Layout = () => {
     fetchLayouts();
   }, []);
 
-  // Generar mapa de asientos automáticamente al cambiar filas/columnas
   useEffect(() => {
+    if (!modoCreacion) return;
     if (!formLayout.rows_piso_1 || !formLayout.columns_piso_1) return;
+
+    // Previene sobreescritura si ya hay celdas
+    const yaTieneCeldas =
+      Array.isArray(seatMap.floor1.seatMap) &&
+      seatMap.floor1.seatMap.length > 0;
+
+    if (yaTieneCeldas) return;
 
     const generateSeatMap = (rows, cols, startNum = 1) => {
       return Array.from({ length: rows }, (_, rowIdx) =>
         Array.from({ length: cols }, (_, colIdx) => {
+          if (cols === 5 && colIdx === 2) return { type: 'pasillo', label: '' };
           const rowNum = rowIdx + startNum;
-          if (cols === 5 && colIdx === 2) return ""; // pasillo
           const colLetter = String.fromCharCode(65 + colIdx - (cols === 5 && colIdx > 2 ? 1 : 0));
-          return `${rowNum}${colLetter}`;
+          return { type: 'asiento', label: `${rowNum}${colLetter}` };
         })
       );
     };
@@ -145,15 +171,17 @@ const Layout = () => {
       : [];
 
     setSeatMap({
-      floor1: { seatMap: floor1Map },
-      floor2: { seatMap: floor2Map }
+      floor1: { seatMap: normalizarSeatMap(floor1Map) },
+      floor2: { seatMap: normalizarSeatMap(floor2Map) }
     });
+
   }, [
     formLayout.rows_piso_1,
     formLayout.columns_piso_1,
     formLayout.rows_piso_2,
     formLayout.columns_piso_2,
-    formLayout.pisos
+    formLayout.pisos,
+    layoutEditando 
   ]);
 
   const handleGuardar = async () => {
@@ -296,7 +324,7 @@ const Layout = () => {
               </>
             )}
 
-            <div className="col-12">
+            {/* <div className="col-12">
               <div className="card mt-3">
                 <div className="card-body">
                   <h5 className="card-title">Vista Previa</h5>
@@ -310,7 +338,54 @@ const Layout = () => {
                   )}
                 </div>
               </div>
-            </div>
+            </div> */}
+
+            {formLayout.rows_piso_1 && formLayout.columns_piso_1 && (
+              <div className="mt-4">
+                <h5 className="mb-3">Editor Visual de Asientos</h5>
+                <SeatGridEditor
+                  grid={seatMap.floor1.seatMap}
+                  setGrid={setGridFn =>
+                    setSeatMap(prevSeatMap => {
+                      const gridActual = prevSeatMap.floor1.seatMap;
+                      const nuevoGrid = setGridFn(gridActual);
+                      return {
+                        ...prevSeatMap,
+                        floor1: {
+                          ...prevSeatMap.floor1,
+                          seatMap: nuevoGrid
+                        }
+                      };
+                    })
+                  }
+                />
+
+                {formLayout.pisos === '2' && formLayout.rows_piso_2 && formLayout.columns_piso_2 && (
+                  <SeatGridEditor
+                    grid={seatMap.floor1.seatMap}
+                    setGrid={setGridFn =>
+                      setSeatMap(prevSeatMap => {
+                        const gridActual = prevSeatMap.floor1.seatMap;
+                        const nuevoGrid = setGridFn(gridActual); // ejecutamos la función que genera el nuevo grid
+
+                        const actualizado = {
+                          ...prevSeatMap,
+                          floor1: {
+                            ...prevSeatMap.floor1,
+                            seatMap: nuevoGrid
+                          }
+                        };
+
+                        console.log('Nuevo seatMap:', actualizado); // ✅ Log para verificar resultado correcto
+                        return actualizado;
+                      })
+                    }
+                    title="Editor Piso 1"
+                  />
+
+                )}
+              </div>
+            )}
           </div>
         );
       
@@ -382,6 +457,15 @@ const Layout = () => {
                       </li>
                     )}
                   </ul>
+
+                  {/* <div className="col-12">
+                    <div className="card mt-3">
+                      <div className="card-body">
+                        <h5 className="card-title">Vista Previa</h5>
+                        <SeatMapVisualizer seatMap={seatMap} floors={formLayout.pisos} />
+                      </div>
+                    </div>
+                  </div> */}
                 </div>
               </div>
             </div>
