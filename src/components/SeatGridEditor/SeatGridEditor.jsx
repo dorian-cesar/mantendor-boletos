@@ -26,18 +26,29 @@ const SeatGridEditor = ({ grid, setGrid, title }) => {
         ? prev.map((row, i) =>
             Array.isArray(row)
                 ? row.map((cell, j) => {
-                    if (i === rowIdx && j === colIdx) {
-                    return {
-                        type: tipoSeleccionado,
-                        label:
-                        tipoSeleccionado === 'asiento'
-                            ? `${rowIdx + 1}${String.fromCharCode(65 + j)}`
-                            : tipoSeleccionado === 'baño'
-                            ? 'WC'
-                            : ''
-                    };
-                    }
+                    const isTargetCell = i === rowIdx && j === colIdx;
+
+                    if (!isTargetCell) {
                     return cell ?? { type: 'pasillo', label: '' };
+                    }
+
+                    // Validación para evitar duplicar asiento
+                    if (
+                    tipoSeleccionado === 'asiento' &&
+                    cell?.type === 'asiento'
+                    ) {
+                    return cell; // no cambiar si ya es asiento
+                    }
+
+                    return {
+                    type: tipoSeleccionado,
+                    label:
+                        tipoSeleccionado === 'asiento'
+                        ? `${rowIdx + 1}${String.fromCharCode(65 + j)}`
+                        : tipoSeleccionado === 'baño'
+                        ? 'WC'
+                        : ''
+                    };
                 })
                 : row
             )
@@ -47,6 +58,7 @@ const SeatGridEditor = ({ grid, setGrid, title }) => {
         return nuevoGrid;
     });
     };
+
 
   // Contador de asientos válidos
   const totalAsientos = Array.isArray(grid)

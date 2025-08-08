@@ -344,24 +344,6 @@ const Layout = () => {
               <div className="mt-4">
                 <h5 className="mb-3">Editor Visual de Asientos</h5>
                 <SeatGridEditor
-                  grid={seatMap.floor1.seatMap}
-                  setGrid={setGridFn =>
-                    setSeatMap(prevSeatMap => {
-                      const gridActual = prevSeatMap.floor1.seatMap;
-                      const nuevoGrid = setGridFn(gridActual);
-                      return {
-                        ...prevSeatMap,
-                        floor1: {
-                          ...prevSeatMap.floor1,
-                          seatMap: nuevoGrid
-                        }
-                      };
-                    })
-                  }
-                />
-
-                {formLayout.pisos === '2' && formLayout.rows_piso_2 && formLayout.columns_piso_2 && (
-                  <SeatGridEditor
                     grid={seatMap.floor1.seatMap}
                     setGrid={setGridFn =>
                       setSeatMap(prevSeatMap => {
@@ -381,6 +363,29 @@ const Layout = () => {
                       })
                     }
                     title="Editor Piso 1"
+                  />
+
+                {formLayout.pisos === '2' && formLayout.rows_piso_2 && formLayout.columns_piso_2 && (
+                  <SeatGridEditor
+                    grid={seatMap.floor2.seatMap}
+                    setGrid={setGridFn =>
+                      setSeatMap(prevSeatMap => {
+                        const gridActual = prevSeatMap.floor2.seatMap;
+                        const nuevoGrid = setGridFn(gridActual); // ejecutamos la función que genera el nuevo grid
+
+                        const actualizado = {
+                          ...prevSeatMap,
+                          floor2: {
+                            ...prevSeatMap.floor2,
+                            seatMap: nuevoGrid
+                          }
+                        };
+
+                        console.log('Nuevo seatMap:', actualizado); // ✅ Log para verificar resultado correcto
+                        return actualizado;
+                      })
+                    }
+                    title="Editor Piso 2"
                   />
 
                 )}
