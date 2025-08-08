@@ -22,43 +22,37 @@ const SeatGridEditor = ({ grid, setGrid, title }) => {
 
   const handleCellClick = (rowIdx, colIdx) => {
     setGrid(prev => {
+        const cols = prev?.[0]?.length || 0; // <-- saber si hay pasillo central
         const nuevoGrid = Array.isArray(prev)
         ? prev.map((row, i) =>
             Array.isArray(row)
                 ? row.map((cell, j) => {
                     const isTargetCell = i === rowIdx && j === colIdx;
-
                     if (!isTargetCell) {
                     return cell ?? { type: 'pasillo', label: '' };
                     }
 
-                    // Validación para evitar duplicar asiento
-                    if (
-                    tipoSeleccionado === 'asiento' &&
-                    cell?.type === 'asiento'
-                    ) {
-                    return cell; // no cambiar si ya es asiento
+                    // evitar duplicar si ya es asiento
+                    if (tipoSeleccionado === 'asiento' && cell?.type === 'asiento') {
+                    return cell;
                     }
 
-                    return {
-                    type: tipoSeleccionado,
-                    label:
-                        tipoSeleccionado === 'asiento'
-                        ? `${rowIdx + 1}${String.fromCharCode(65 + j)}`
-                        : tipoSeleccionado === 'baño'
-                        ? 'WC'
-                        : ''
-                    };
+                    // *** AQUI EL OFFSET DEL PASILLO ***
+                    const colOffset = (cols === 5 && j > 2) ? (j - 1) : j;
+                    const label =
+                    tipoSeleccionado === 'asiento'
+                        ? `${rowIdx + 1}${String.fromCharCode(65 + colOffset)}`
+                        : (tipoSeleccionado === 'baño' ? 'WC' : '');
+
+                    return { type: tipoSeleccionado, label };
                 })
                 : row
             )
         : prev;
 
-        console.log('Nuevo grid generado:', nuevoGrid);
         return nuevoGrid;
     });
     };
-
 
   // Contador de asientos válidos
   const totalAsientos = Array.isArray(grid)

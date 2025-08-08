@@ -521,11 +521,11 @@ const Layout = () => {
                         const haCambiado =
                           !antiguo ||
                           antiguo.name !== nuevo.name ||
-                          antiguo.rows !== nuevo.rows;
-                          antiguo.columns !== nuevo.columns;
-                          antiguo.pisos !== nuevo.pisos;
-                          antiguo.capacidad !== nuevo.capacidad;
-                          antiguo.tipo_Asiento_piso_1 !== nuevo.tipo_Asiento_piso_1;
+                          antiguo.rows !== nuevo.rows ||
+                          antiguo.columns !== nuevo.columns ||
+                          antiguo.pisos !== nuevo.pisos ||
+                          antiguo.capacidad !== nuevo.capacidad ||
+                          antiguo.tipo_Asiento_piso_1 !== nuevo.tipo_Asiento_piso_1 ||
                           antiguo.tipo_Asiento_piso_2 !== nuevo.tipo_Asiento_piso_2;
 
                         nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
