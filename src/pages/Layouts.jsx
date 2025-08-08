@@ -147,13 +147,6 @@ const Layout = () => {
     if (!modoCreacion) return;
     if (!formLayout.rows_piso_1 || !formLayout.columns_piso_1) return;
 
-    // Previene sobreescritura si ya hay celdas
-    const yaTieneCeldas =
-      Array.isArray(seatMap.floor1.seatMap) &&
-      seatMap.floor1.seatMap.length > 0;
-
-    if (yaTieneCeldas) return;
-
     const generateSeatMap = (rows, cols, startNum = 1) => {
       return Array.from({ length: rows }, (_, rowIdx) =>
         Array.from({ length: cols }, (_, colIdx) => {
@@ -165,10 +158,25 @@ const Layout = () => {
       );
     };
 
-    const floor1Map = generateSeatMap(parseInt(formLayout.rows_piso_1), parseInt(formLayout.columns_piso_1), 1);
-    const floor2Map = formLayout.pisos === '2' && formLayout.rows_piso_2 && formLayout.columns_piso_2
-      ? generateSeatMap(parseInt(formLayout.rows_piso_2), parseInt(formLayout.columns_piso_2), 1)
-      : [];
+    const floor1Map = generateSeatMap(
+      parseInt(formLayout.rows_piso_1),
+      parseInt(formLayout.columns_piso_1),
+      1
+    );
+
+    let floor2Map = [];
+
+    if (
+      formLayout.pisos === '2' &&
+      formLayout.rows_piso_2 &&
+      formLayout.columns_piso_2
+    ) {
+      floor2Map = generateSeatMap(
+        parseInt(formLayout.rows_piso_2),
+        parseInt(formLayout.columns_piso_2),
+        1
+      );
+    }
 
     setSeatMap({
       floor1: { seatMap: normalizarSeatMap(floor1Map) },
@@ -176,12 +184,12 @@ const Layout = () => {
     });
 
   }, [
+    modoCreacion,
     formLayout.rows_piso_1,
     formLayout.columns_piso_1,
     formLayout.rows_piso_2,
     formLayout.columns_piso_2,
-    formLayout.pisos,
-    layoutEditando 
+    formLayout.pisos
   ]);
 
   const handleGuardar = async () => {
@@ -461,16 +469,7 @@ const Layout = () => {
                         <strong>{formLayout.tipo_Asiento_piso_2 || 'No definido'}</strong>
                       </li>
                     )}
-                  </ul>
-
-                  {/* <div className="col-12">
-                    <div className="card mt-3">
-                      <div className="card-body">
-                        <h5 className="card-title">Vista Previa</h5>
-                        <SeatMapVisualizer seatMap={seatMap} floors={formLayout.pisos} />
-                      </div>
-                    </div>
-                  </div> */}
+                  </ul>                  
                 </div>
               </div>
             </div>
@@ -622,7 +621,7 @@ const Layout = () => {
           setModalEditarVisible(false);
           setLayoutEditando(null);
           setCurrentStep(1);
-          setModoCreacion(true); // ← importante
+          setModoCreacion(true);
           setFormLayout({
             name: '',
             pisos: '1',
