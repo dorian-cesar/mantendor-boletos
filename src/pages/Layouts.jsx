@@ -143,6 +143,7 @@ const Layout = () => {
     fetchLayouts();
   }, []);
 
+  // Piso 1 - Independiente
   useEffect(() => {
     if (!modoCreacion) return;
     if (!formLayout.rows_piso_1 || !formLayout.columns_piso_1) return;
@@ -164,33 +165,40 @@ const Layout = () => {
       1
     );
 
-    let floor2Map = [];
+    setSeatMap(prev => ({
+      ...prev,
+      floor1: { seatMap: normalizarSeatMap(floor1Map) }
+    }));
+  }, [modoCreacion, formLayout.rows_piso_1, formLayout.columns_piso_1]);
 
-    if (
-      formLayout.pisos === '2' &&
-      formLayout.rows_piso_2 &&
-      formLayout.columns_piso_2
-    ) {
-      floor2Map = generateSeatMap(
-        parseInt(formLayout.rows_piso_2),
-        parseInt(formLayout.columns_piso_2),
-        1
+  // Piso 2 - Independiente
+  useEffect(() => {
+    if (!modoCreacion) return;
+    if (formLayout.pisos !== '2') return;
+    if (!formLayout.rows_piso_2 || !formLayout.columns_piso_2) return;
+
+    const generateSeatMap = (rows, cols, startNum = 1) => {
+      return Array.from({ length: rows }, (_, rowIdx) =>
+        Array.from({ length: cols }, (_, colIdx) => {
+          if (cols === 5 && colIdx === 2) return { type: 'pasillo', label: '' };
+          const rowNum = rowIdx + startNum;
+          const colLetter = String.fromCharCode(65 + colIdx - (cols === 5 && colIdx > 2 ? 1 : 0));
+          return { type: 'asiento', label: `${rowNum}${colLetter}` };
+        })
       );
-    }
+    };
 
-    setSeatMap({
-      floor1: { seatMap: normalizarSeatMap(floor1Map) },
+    const floor2Map = generateSeatMap(
+      parseInt(formLayout.rows_piso_2),
+      parseInt(formLayout.columns_piso_2),
+      1
+    );
+
+    setSeatMap(prev => ({
+      ...prev,
       floor2: { seatMap: normalizarSeatMap(floor2Map) }
-    });
-
-  }, [
-    modoCreacion,
-    formLayout.rows_piso_1,
-    formLayout.columns_piso_1,
-    formLayout.rows_piso_2,
-    formLayout.columns_piso_2,
-    formLayout.pisos
-  ]);
+    }));
+  }, [modoCreacion, formLayout.pisos, formLayout.rows_piso_2, formLayout.columns_piso_2]);
 
   const handleGuardar = async () => {
     const capacidadCalculada =
