@@ -69,14 +69,19 @@ const Layout = () => {
       const fullLayout = await res.json();
 
       setLayoutEditando(fullLayout.name);
-      setFormLayout({ 
-        name: fullLayout.name, 
+
+      setFormLayout({
+        name: fullLayout.name,
         rows: fullLayout.rows,
         columns: fullLayout.columns,
-        pisos: fullLayout.pisos, 
-        capacidad: fullLayout.capacidad, 
-        tipo_Asiento_piso_1: fullLayout.tipo_Asiento_piso_1, 
-        tipo_Asiento_piso_2: fullLayout.tipo_Asiento_piso_2
+        pisos: String(fullLayout.pisos),
+        capacidad: fullLayout.capacidad,
+        tipo_Asiento_piso_1: fullLayout.tipo_Asiento_piso_1 || '',
+        tipo_Asiento_piso_2: fullLayout.tipo_Asiento_piso_2 || '',
+        rows_piso_1: fullLayout.rows_piso_1 || '',
+        columns_piso_1: fullLayout.columns_piso_1 || '',
+        rows_piso_2: fullLayout.rows_piso_2 || '',
+        columns_piso_2: fullLayout.columns_piso_2 || ''
       });
 
       setSeatMap({
@@ -84,12 +89,16 @@ const Layout = () => {
         floor2: { seatMap: normalizarSeatMap(fullLayout.floor2?.seatMap || []) }
       });
 
-      setModalEditarVisible(true);
+      setModoCreacion(false); // Muy importante para no sobreescribir grilla editando
+      setCurrentStep(1); // Empieza desde el paso 1 del modal si usas múltiples pasos
+      setModalEditarVisible(true);      
+
     } catch (error) {
       console.error('Error al cargar layout completo:', error);
       showToast('Error', 'No se pudo cargar el layout completo', true);
     }
   };
+
 
 
   const handleEliminar = async (name) => {
@@ -203,22 +212,27 @@ const Layout = () => {
     const capacidadCalculada =
       contarAsientos(seatMap.floor1.seatMap) +
       (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
-    
-    const rowsTotal = parseInt(formLayout.rows_piso_1 || 0) +
-      (formLayout.pisos === '2' ? parseInt(formLayout.rows_piso_2 || 0) : 0);
-    const columnsTotal = parseInt(formLayout.columns_piso_1 || 0) +
-      (formLayout.pisos === '2' ? parseInt(formLayout.columns_piso_2 || 0) : 0);
 
-    const transformarSeatMap = (seatMap) => {
-      return seatMap.map(row =>
-        row.map(cell => (cell.type === "asiento" ? cell.label : ""))
-      );
-    };
+    const rowsTotal =
+      parseInt(formLayout.rows_piso_1 || 0) +
+      (formLayout.pisos === '2' ? parseInt(formLayout.rows_piso_2 || 0) : 0);
+
+    const columnsTotal =
+      parseInt(formLayout.columns_piso_1 || 0) +
+      (formLayout.pisos === '2' ? parseInt(formLayout.columns_piso_2 || 0) : 0);
 
     const payload = {
       ...formLayout,
-      floor1: { seatMap: transformarSeatMap(seatMap.floor1.seatMap) },
-      floor2: { seatMap: transformarSeatMap(seatMap.floor2.seatMap) },
+      floor1: {
+        seatMap: seatMap.floor1.seatMap.map(row =>
+          row.map(cell => (cell.type === 'asiento' ? cell.label : ''))
+        )
+      },
+      floor2: {
+        seatMap: seatMap.floor2.seatMap.map(row =>
+          row.map(cell => (cell.type === 'asiento' ? cell.label : ''))
+        )
+      },
       pisos: parseInt(formLayout.pisos),
       rows_piso_1: parseInt(formLayout.rows_piso_1),
       columns_piso_1: parseInt(formLayout.columns_piso_1),
@@ -230,18 +244,26 @@ const Layout = () => {
     };
 
     try {
-      const res = await fetch('https://boletos.dev-wit.com/api/layouts/', {
-        method: 'POST',
+      const url = layoutEditando
+        ? `https://boletos.dev-wit.com/api/layouts/${layoutEditando}`
+        : 'https://boletos.dev-wit.com/api/layouts/';
+      const method = layoutEditando ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error('Error al crear layout');
-      
-      await showToast('Éxito', 'Layout creado correctamente');
+      if (!res.ok) throw new Error(`Error al ${layoutEditando ? 'actualizar' : 'crear'} layout`);
+
+      await showToast('Éxito', `Layout ${layoutEditando ? 'actualizado' : 'creado'} correctamente`);
       setModalEditarVisible(false);
       setCurrentStep(1);
+      setLayoutEditando(null);
+      setModoCreacion(true);
 
+      // Recarga la lista desde el backend
       setCargando(true);
       const resList = await fetch('https://boletos.dev-wit.com/api/layouts/');
       const data = await resList.json();
