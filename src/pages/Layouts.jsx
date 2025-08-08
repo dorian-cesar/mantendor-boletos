@@ -351,13 +351,13 @@ const Layout = () => {
             {formLayout.rows_piso_1 && formLayout.columns_piso_1 && (
               <div className="mt-4">
                 <h5 className="mb-3">Editor Visual de Asientos</h5>
-                <SeatGridEditor
+                <div className="d-flex gap-4">
+                  <SeatGridEditor
                     grid={seatMap.floor1.seatMap}
                     setGrid={setGridFn =>
                       setSeatMap(prevSeatMap => {
                         const gridActual = prevSeatMap.floor1.seatMap;
-                        const nuevoGrid = setGridFn(gridActual); // ejecutamos la función que genera el nuevo grid
-
+                        const nuevoGrid = setGridFn(gridActual);
                         const actualizado = {
                           ...prevSeatMap,
                           floor1: {
@@ -365,38 +365,37 @@ const Layout = () => {
                             seatMap: nuevoGrid
                           }
                         };
-
-                        console.log('Nuevo seatMap:', actualizado); // ✅ Log para verificar resultado correcto
+                        console.log('Nuevo seatMap:', actualizado);
                         return actualizado;
                       })
                     }
                     title="Editor Piso 1"
                   />
 
-                {formLayout.pisos === '2' && formLayout.rows_piso_2 && formLayout.columns_piso_2 && (
-                  <SeatGridEditor
-                    grid={seatMap.floor2.seatMap}
-                    setGrid={setGridFn =>
-                      setSeatMap(prevSeatMap => {
-                        const gridActual = prevSeatMap.floor2.seatMap;
-                        const nuevoGrid = setGridFn(gridActual); // ejecutamos la función que genera el nuevo grid
-
-                        const actualizado = {
-                          ...prevSeatMap,
-                          floor2: {
-                            ...prevSeatMap.floor2,
-                            seatMap: nuevoGrid
-                          }
-                        };
-
-                        console.log('Nuevo seatMap:', actualizado); // ✅ Log para verificar resultado correcto
-                        return actualizado;
-                      })
-                    }
-                    title="Editor Piso 2"
-                  />
-
-                )}
+                  {formLayout.pisos === '2' &&
+                    formLayout.rows_piso_2 &&
+                    formLayout.columns_piso_2 && (
+                      <SeatGridEditor
+                        grid={seatMap.floor2.seatMap}
+                        setGrid={setGridFn =>
+                          setSeatMap(prevSeatMap => {
+                            const gridActual = prevSeatMap.floor2.seatMap;
+                            const nuevoGrid = setGridFn(gridActual);
+                            const actualizado = {
+                              ...prevSeatMap,
+                              floor2: {
+                                ...prevSeatMap.floor2,
+                                seatMap: nuevoGrid
+                              }
+                            };
+                            console.log('Nuevo seatMap:', actualizado);
+                            return actualizado;
+                          })
+                        }
+                        title="Editor Piso 2"
+                      />
+                    )}
+                </div>
               </div>
             )}
           </div>
