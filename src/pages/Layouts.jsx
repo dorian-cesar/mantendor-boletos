@@ -4,7 +4,6 @@ import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
 import ModalBase from '@components/ModalBase/ModalBase';
 import { showToast } from '@components/Toast/Toast';
-import SeatMapVisualizer from '@components/SeatMapVisualizer/SeatMapVisualizer';
 import SeatGridEditor from '../components/SeatGridEditor/SeatGridEditor';
 import Swal from 'sweetalert2';
 
@@ -202,18 +201,24 @@ const Layout = () => {
 
   const handleGuardar = async () => {
     const capacidadCalculada =
-    contarAsientos(seatMap.floor1.seatMap) +
-    (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
+      contarAsientos(seatMap.floor1.seatMap) +
+      (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
     
     const rowsTotal = parseInt(formLayout.rows_piso_1 || 0) +
       (formLayout.pisos === '2' ? parseInt(formLayout.rows_piso_2 || 0) : 0);
     const columnsTotal = parseInt(formLayout.columns_piso_1 || 0) +
       (formLayout.pisos === '2' ? parseInt(formLayout.columns_piso_2 || 0) : 0);
 
+    const transformarSeatMap = (seatMap) => {
+      return seatMap.map(row =>
+        row.map(cell => (cell.type === "asiento" ? cell.label : ""))
+      );
+    };
+
     const payload = {
       ...formLayout,
-      floor1: seatMap.floor1,
-      floor2: seatMap.floor2,
+      floor1: { seatMap: transformarSeatMap(seatMap.floor1.seatMap) },
+      floor2: { seatMap: transformarSeatMap(seatMap.floor2.seatMap) },
       pisos: parseInt(formLayout.pisos),
       rows_piso_1: parseInt(formLayout.rows_piso_1),
       columns_piso_1: parseInt(formLayout.columns_piso_1),
@@ -237,7 +242,6 @@ const Layout = () => {
       setModalEditarVisible(false);
       setCurrentStep(1);
 
-      // Recarga la lista desde el backend
       setCargando(true);
       const resList = await fetch('https://boletos.dev-wit.com/api/layouts/');
       const data = await resList.json();
@@ -338,23 +342,7 @@ const Layout = () => {
                   />
                 </div>
               </>
-            )}
-
-            {/* <div className="col-12">
-              <div className="card mt-3">
-                <div className="card-body">
-                  <h5 className="card-title">Vista Previa</h5>
-                  {formLayout.rows_piso_1 && formLayout.columns_piso_1 ? (
-                    <SeatMapVisualizer 
-                      seatMap={seatMap} 
-                      floors={formLayout.pisos} 
-                    />
-                  ) : (
-                    <p className="text-muted">Configura las filas y columnas para ver la vista previa</p>
-                  )}
-                </div>
-              </div>
-            </div> */}
+            )}            
 
             {formLayout.rows_piso_1 && formLayout.columns_piso_1 && (
               <div className="mt-4">
