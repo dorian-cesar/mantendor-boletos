@@ -622,6 +622,22 @@ const Layout = () => {
           setModalEditarVisible(false);
           setLayoutEditando(null);
           setCurrentStep(1);
+          setModoCreacion(true); // ← importante
+          setFormLayout({
+            name: '',
+            pisos: '1',
+            capacidad: '',
+            tipo_Asiento_piso_1: '',
+            tipo_Asiento_piso_2: '',
+            rows_piso_1: '',
+            columns_piso_1: '',
+            rows_piso_2: '',
+            columns_piso_2: ''
+          });
+          setSeatMap({
+            floor1: { seatMap: [] },
+            floor2: { seatMap: [] }
+          });
         }}
         size="lg"
         footer={
