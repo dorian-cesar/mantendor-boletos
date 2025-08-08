@@ -70,18 +70,18 @@ const Layout = () => {
 
       setLayoutEditando(fullLayout.name);
 
-      setFormLayout({
-        name: fullLayout.name,
+      setFormLayout({ 
+        name: fullLayout.name, 
         rows: fullLayout.rows,
         columns: fullLayout.columns,
-        pisos: String(fullLayout.pisos),
-        capacidad: fullLayout.capacidad,
-        tipo_Asiento_piso_1: fullLayout.tipo_Asiento_piso_1 || '',
-        tipo_Asiento_piso_2: fullLayout.tipo_Asiento_piso_2 || '',
-        rows_piso_1: fullLayout.rows_piso_1 || '',
-        columns_piso_1: fullLayout.columns_piso_1 || '',
-        rows_piso_2: fullLayout.rows_piso_2 || '',
-        columns_piso_2: fullLayout.columns_piso_2 || ''
+        pisos: fullLayout.pisos?.toString() || '1',
+        capacidad: fullLayout.capacidad, 
+        tipo_Asiento_piso_1: fullLayout.tipo_Asiento_piso_1, 
+        tipo_Asiento_piso_2: fullLayout.tipo_Asiento_piso_2,
+        rows_piso_1: fullLayout.floor1?.seatMap?.length || 0,
+        columns_piso_1: fullLayout.floor1?.seatMap?.[0]?.length || 0,
+        rows_piso_2: fullLayout.floor2?.seatMap?.length || 0,
+        columns_piso_2: fullLayout.floor2?.seatMap?.[0]?.length || 0
       });
 
       setSeatMap({
@@ -89,17 +89,15 @@ const Layout = () => {
         floor2: { seatMap: normalizarSeatMap(fullLayout.floor2?.seatMap || []) }
       });
 
-      setModoCreacion(false); // Muy importante para no sobreescribir grilla editando
-      setCurrentStep(1); // Empieza desde el paso 1 del modal si usas múltiples pasos
-      setModalEditarVisible(true);      
+      setModoCreacion(false); // No sobrescribir grilla existente
+      setCurrentStep(1);      // Paso inicial del modal
+      setModalEditarVisible(true);
 
     } catch (error) {
       console.error('Error al cargar layout completo:', error);
       showToast('Error', 'No se pudo cargar el layout completo', true);
     }
   };
-
-
 
   const handleEliminar = async (name) => {
     const result = await Swal.fire({
@@ -390,29 +388,18 @@ const Layout = () => {
                     title="Editor Piso 1"
                   />
 
-                  {formLayout.pisos === '2' &&
-                    formLayout.rows_piso_2 &&
-                    formLayout.columns_piso_2 && (
-                      <SeatGridEditor
-                        grid={seatMap.floor2.seatMap}
-                        setGrid={setGridFn =>
-                          setSeatMap(prevSeatMap => {
-                            const gridActual = prevSeatMap.floor2.seatMap;
-                            const nuevoGrid = setGridFn(gridActual);
-                            const actualizado = {
-                              ...prevSeatMap,
-                              floor2: {
-                                ...prevSeatMap.floor2,
-                                seatMap: nuevoGrid
-                              }
-                            };
-                            console.log('Nuevo seatMap:', actualizado);
-                            return actualizado;
-                          })
-                        }
-                        title="Editor Piso 2"
-                      />
-                    )}
+                  {parseInt(formLayout.pisos) === 2 && (
+                    <SeatGridEditor
+                      grid={seatMap.floor2.seatMap}
+                      setGrid={(newGrid) =>
+                        setSeatMap((prev) => ({
+                          ...prev,
+                          floor2: { seatMap: newGrid }
+                        }))
+                      }
+                      title="Piso 2"
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -437,7 +424,7 @@ const Layout = () => {
               </select>
             </div>
 
-            {formLayout.pisos === '2' && (
+            {parseInt(formLayout.pisos) === 2 && (
               <div className="col-md-6">
                 <label className="form-label">Tipo de Asiento - Piso 2*</label>
                 <select
@@ -452,7 +439,7 @@ const Layout = () => {
                   <option value="Ejecutivo">Ejecutivo</option>
                 </select>
               </div>
-            )}            
+            )}        
 
             <div className="col-12">
               <div className="card mt-3">
