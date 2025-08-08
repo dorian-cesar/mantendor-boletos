@@ -58,9 +58,10 @@ const Layout = () => {
     );
   };
 
+  const pisosNum = Number(formLayout.pisos);
   const capacidadCalculada =
-  contarAsientos(seatMap.floor1.seatMap) +
-  (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
+    contarAsientos(seatMap.floor1.seatMap) +
+    (pisosNum === 2 ? contarAsientos(seatMap.floor2.seatMap) : 0);
 
   const handleEditar = async (layout) => {
     try {
@@ -177,42 +178,52 @@ const Layout = () => {
     }));
   }, [modoCreacion, formLayout.rows_piso_1, formLayout.columns_piso_1]);
 
-  // Piso 2 - Independiente
+  // Piso 2 - generar/ajustar grilla también en edición
   useEffect(() => {
-    if (!modoCreacion) return;
-    if (formLayout.pisos !== '2') return;
-    const rows = parseInt(formLayout.rows_piso_2);
-    const cols = parseInt(formLayout.columns_piso_2);
+    const pisosNum = Number(formLayout.pisos);
+    if (pisosNum !== 2) return;
+
+    const rows = parseInt(formLayout.rows_piso_2 || 0);
+    const cols = parseInt(formLayout.columns_piso_2 || 0);
     if (!rows || !cols) return;
 
-    const floor2Map = Array.from({ length: rows }, (_, rowIdx) =>
-      Array.from({ length: cols }, (_, colIdx) => ({
-        type: cols === 5 && colIdx === 2 ? 'pasillo' : 'asiento',
-        label:
-          cols === 5 && colIdx === 2
-            ? ''
-            : `${rowIdx + 1}${String.fromCharCode(65 + (colIdx > 2 && cols === 5 ? colIdx - 1 : colIdx))}`,
-      }))
-    );
+    const yaExiste = Array.isArray(seatMap.floor2?.seatMap) && seatMap.floor2.seatMap.length > 0;
+    const dimsIguales =
+      yaExiste &&
+      seatMap.floor2.seatMap.length === rows &&
+      seatMap.floor2.seatMap[0]?.length === cols;
 
-    setSeatMap(prev => ({
-      ...prev,
-      floor2: { seatMap: floor2Map }
-    }));
-  }, [modoCreacion, formLayout.pisos, formLayout.rows_piso_2, formLayout.columns_piso_2]);
+    // Si no hay grilla o cambian filas/columnas -> regenerar
+    if (!yaExiste || !dimsIguales) {
+      const floor2Map = Array.from({ length: rows }, (_, rowIdx) =>
+        Array.from({ length: cols }, (_, colIdx) => {
+          if (cols === 5 && colIdx === 2) return { type: 'pasillo', label: '' };
+          const colOffset = (cols === 5 && colIdx > 2) ? (colIdx - 1) : colIdx;
+          const label = `${rowIdx + 1}${String.fromCharCode(65 + colOffset)}`;
+          return { type: 'asiento', label };
+        })
+      );
+
+      setSeatMap(prev => ({
+        ...prev,
+        floor2: { seatMap: floor2Map },
+      }));
+    }
+  }, [formLayout.pisos, formLayout.rows_piso_2, formLayout.columns_piso_2]);
 
   const handleGuardar = async () => {
+    const pisosNum = Number(formLayout.pisos);
     const capacidadCalculada =
       contarAsientos(seatMap.floor1.seatMap) +
-      (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
+      (pisosNum === 2 ? contarAsientos(seatMap.floor2.seatMap) : 0);
 
     const rowsTotal =
       parseInt(formLayout.rows_piso_1 || 0) +
-      (formLayout.pisos === '2' ? parseInt(formLayout.rows_piso_2 || 0) : 0);
+      (pisosNum === 2 ? parseInt(formLayout.rows_piso_2 || 0) : 0);
 
     const columnsTotal =
       parseInt(formLayout.columns_piso_1 || 0) +
-      (formLayout.pisos === '2' ? parseInt(formLayout.columns_piso_2 || 0) : 0);
+      (pisosNum === 2 ? parseInt(formLayout.columns_piso_2 || 0) : 0);
 
     const payload = {
       ...formLayout,
@@ -274,9 +285,10 @@ const Layout = () => {
   };
 
   const renderStepContent = () => {
+    const pisosNum = Number(formLayout.pisos);
     const capacidadCalculada =
       contarAsientos(seatMap.floor1.seatMap) +
-      (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
+      (pisosNum === 2 ? contarAsientos(seatMap.floor2.seatMap) : 0);
 
     switch (currentStep) {
       case 1:
@@ -386,25 +398,18 @@ const Layout = () => {
                     title="Editor Piso 1"
                   />
 
-                  {parseInt(formLayout.pisos) === 2 && (
-                    <SeatGridEditor
-                      grid={seatMap.floor2.seatMap}
-                      setGrid={setGridFn =>
-                        setSeatMap(prevSeatMap => {
-                          const gridActual = prevSeatMap.floor2.seatMap;
-                          const nuevoGrid = setGridFn(gridActual);
-                          return {
-                            ...prevSeatMap,
-                            floor2: {
-                              ...prevSeatMap.floor2,
-                              seatMap: nuevoGrid
-                            }
-                          };
-                        })
-                      }
-                      title="Piso 2"
-                    />
-                  )}
+                  {Number(formLayout.pisos) === 2 && (
+                  <SeatGridEditor
+                    grid={seatMap.floor2.seatMap}
+                    setGrid={(setGridFn) =>
+                      setSeatMap(prev => ({
+                        ...prev,
+                        floor2: { seatMap: setGridFn(prev.floor2.seatMap) }
+                      }))
+                    }
+                    title="Piso 2"
+                  />
+                )}
                 </div>
               </div>
             )}
@@ -562,11 +567,16 @@ const Layout = () => {
                     name: '',
                     rows: '',
                     columns: '',
-                    pisos: '1', // Selecciona 1 piso por defecto
+                    pisos: '1',
                     capacidad: '',
                     tipo_Asiento_piso_1: '',
-                    tipo_Asiento_piso_2: ''
+                    tipo_Asiento_piso_2: '',
+                    rows_piso_1: '',
+                    columns_piso_1: '',
+                    rows_piso_2: '',
+                    columns_piso_2: ''
                   });
+                  setSeatMap({ floor1: { seatMap: [] }, floor2: { seatMap: [] } }); // <-- añadir
                   setModalEditarVisible(true);
                 }}
               >
