@@ -172,8 +172,8 @@ const Layout = () => {
     );
 
     setSeatMap(prev => ({
-      ...prev,
-      floor1: { seatMap: normalizarSeatMap(floor1Map) }
+      floor1: { seatMap: normalizarSeatMap(floor1Map) },
+      floor2: prev.floor2 || { seatMap: [] } 
     }));
   }, [modoCreacion, formLayout.rows_piso_1, formLayout.columns_piso_1]);
 
@@ -181,28 +181,23 @@ const Layout = () => {
   useEffect(() => {
     if (!modoCreacion) return;
     if (formLayout.pisos !== '2') return;
-    if (!formLayout.rows_piso_2 || !formLayout.columns_piso_2) return;
+    const rows = parseInt(formLayout.rows_piso_2);
+    const cols = parseInt(formLayout.columns_piso_2);
+    if (!rows || !cols) return;
 
-    const generateSeatMap = (rows, cols, startNum = 1) => {
-      return Array.from({ length: rows }, (_, rowIdx) =>
-        Array.from({ length: cols }, (_, colIdx) => {
-          if (cols === 5 && colIdx === 2) return { type: 'pasillo', label: '' };
-          const rowNum = rowIdx + startNum;
-          const colLetter = String.fromCharCode(65 + colIdx - (cols === 5 && colIdx > 2 ? 1 : 0));
-          return { type: 'asiento', label: `${rowNum}${colLetter}` };
-        })
-      );
-    };
-
-    const floor2Map = generateSeatMap(
-      parseInt(formLayout.rows_piso_2),
-      parseInt(formLayout.columns_piso_2),
-      1
+    const floor2Map = Array.from({ length: rows }, (_, rowIdx) =>
+      Array.from({ length: cols }, (_, colIdx) => ({
+        type: cols === 5 && colIdx === 2 ? 'pasillo' : 'asiento',
+        label:
+          cols === 5 && colIdx === 2
+            ? ''
+            : `${rowIdx + 1}${String.fromCharCode(65 + (colIdx > 2 && cols === 5 ? colIdx - 1 : colIdx))}`,
+      }))
     );
 
     setSeatMap(prev => ({
       ...prev,
-      floor2: { seatMap: normalizarSeatMap(floor2Map) }
+      floor2: { seatMap: floor2Map }
     }));
   }, [modoCreacion, formLayout.pisos, formLayout.rows_piso_2, formLayout.columns_piso_2]);
 
@@ -279,10 +274,9 @@ const Layout = () => {
   };
 
   const renderStepContent = () => {
-
     const capacidadCalculada =
-    contarAsientos(seatMap.floor1.seatMap) +
-    (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
+      contarAsientos(seatMap.floor1.seatMap) +
+      (formLayout.pisos === '2' ? contarAsientos(seatMap.floor2.seatMap) : 0);
 
     switch (currentStep) {
       case 1:
@@ -293,18 +287,23 @@ const Layout = () => {
               <input
                 className="form-control"
                 value={formLayout.name}
-                onChange={(e) => setFormLayout({...formLayout, name: e.target.value})}
+                onChange={(e) => setFormLayout({ ...formLayout, name: e.target.value })}
                 placeholder="Ej: bus_2pisos_48Seat"
                 required
               />
             </div>
-            
+
             <div className="col-md-6">
               <label className="form-label">Número de Pisos*</label>
               <select
                 className="form-select"
                 value={formLayout.pisos}
-                onChange={(e) => setFormLayout({...formLayout, pisos: e.target.value})}
+                onChange={(e) => setFormLayout({
+                  ...formLayout,
+                  pisos: e.target.value,
+                  rows_piso_2: e.target.value === '2' ? (formLayout.rows_piso_2 || 1) : '',
+                  columns_piso_2: e.target.value === '2' ? (formLayout.columns_piso_2 || 1) : ''
+                })}
                 required
               >
                 <option value="">Seleccionar...</option>
@@ -336,6 +335,7 @@ const Layout = () => {
                 required
               />
             </div>
+
             {formLayout.pisos === '2' && (
               <>
                 <div className="col-md-6">
@@ -362,7 +362,7 @@ const Layout = () => {
                   />
                 </div>
               </>
-            )}            
+            )}
 
             {formLayout.rows_piso_1 && formLayout.columns_piso_1 && (
               <div className="mt-4">
@@ -374,15 +374,13 @@ const Layout = () => {
                       setSeatMap(prevSeatMap => {
                         const gridActual = prevSeatMap.floor1.seatMap;
                         const nuevoGrid = setGridFn(gridActual);
-                        const actualizado = {
+                        return {
                           ...prevSeatMap,
                           floor1: {
                             ...prevSeatMap.floor1,
                             seatMap: nuevoGrid
                           }
                         };
-                        console.log('Nuevo seatMap:', actualizado);
-                        return actualizado;
                       })
                     }
                     title="Editor Piso 1"
@@ -391,11 +389,18 @@ const Layout = () => {
                   {parseInt(formLayout.pisos) === 2 && (
                     <SeatGridEditor
                       grid={seatMap.floor2.seatMap}
-                      setGrid={(newGrid) =>
-                        setSeatMap((prev) => ({
-                          ...prev,
-                          floor2: { seatMap: newGrid }
-                        }))
+                      setGrid={setGridFn =>
+                        setSeatMap(prevSeatMap => {
+                          const gridActual = prevSeatMap.floor2.seatMap;
+                          const nuevoGrid = setGridFn(gridActual);
+                          return {
+                            ...prevSeatMap,
+                            floor2: {
+                              ...prevSeatMap.floor2,
+                              seatMap: nuevoGrid
+                            }
+                          };
+                        })
                       }
                       title="Piso 2"
                     />
@@ -405,7 +410,7 @@ const Layout = () => {
             )}
           </div>
         );
-      
+
       case 2:
         return (
           <div className="row g-3">
@@ -414,7 +419,7 @@ const Layout = () => {
               <select
                 className="form-select"
                 value={formLayout.tipo_Asiento_piso_1}
-                onChange={(e) => setFormLayout({...formLayout, tipo_Asiento_piso_1: e.target.value})}
+                onChange={(e) => setFormLayout({ ...formLayout, tipo_Asiento_piso_1: e.target.value })}
                 required
               >
                 <option value="">Seleccionar...</option>
@@ -430,7 +435,7 @@ const Layout = () => {
                 <select
                   className="form-select"
                   value={formLayout.tipo_Asiento_piso_2}
-                  onChange={(e) => setFormLayout({...formLayout, tipo_Asiento_piso_2: e.target.value})}
+                  onChange={(e) => setFormLayout({ ...formLayout, tipo_Asiento_piso_2: e.target.value })}
                   required
                 >
                   <option value="">Seleccionar...</option>
@@ -439,7 +444,7 @@ const Layout = () => {
                   <option value="Ejecutivo">Ejecutivo</option>
                 </select>
               </div>
-            )}        
+            )}
 
             <div className="col-12">
               <div className="card mt-3">
@@ -473,7 +478,7 @@ const Layout = () => {
                         <strong>{formLayout.tipo_Asiento_piso_2 || 'No definido'}</strong>
                       </li>
                     )}
-                  </ul>                  
+                  </ul>
                 </div>
               </div>
             </div>

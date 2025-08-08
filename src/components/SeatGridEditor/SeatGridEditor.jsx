@@ -97,29 +97,27 @@ const SeatGridEditor = ({ grid, setGrid, title }) => {
           gap: '2px'
         }}
       >
-        {Array.isArray(grid) && grid.length > 0 ? (
+        {Array.isArray(grid) && grid.every(row => Array.isArray(row)) && grid.length > 0 ? (
         grid.map((row, rowIdx) =>
-            Array.isArray(row)
-            ? row.map((cell, colIdx) => {
-                const safeCell = typeof cell === 'object' && cell !== null ? cell : { type: 'pasillo', label: '' };
-                const type = safeCell.type;
-                return (
-                    <div
-                    key={`${rowIdx}-${colIdx}`}
-                    className={`border d-flex align-items-center justify-content-center ${getCellClass(type)}`}
-                    style={{
-                        height: 50,
-                        width: 50,
-                        cursor: 'pointer',
-                        fontSize: 14
-                    }}
-                    onClick={() => handleCellClick(rowIdx, colIdx)}
-                    >
-                    {type === 'asiento' ? safeCell.label : type === 'baño' ? 'WC' : ''}
-                    </div>
-                );
-                })
-            : null
+            row.map((cell, colIdx) => {
+            const safeCell = typeof cell === 'object' && cell !== null ? cell : { type: 'pasillo', label: '' };
+            const type = safeCell.type;
+            return (
+                <div
+                key={`${rowIdx}-${colIdx}`}
+                className={`border d-flex align-items-center justify-content-center ${getCellClass(type)}`}
+                style={{
+                    height: 50,
+                    width: 50,
+                    cursor: 'pointer',
+                    fontSize: 14
+                }}
+                onClick={() => handleCellClick(rowIdx, colIdx)}
+                >
+                {type === 'asiento' ? safeCell.label : type === 'baño' ? 'WC' : ''}
+                </div>
+            );
+            })
         )
         ) : (
         <p className="text-muted">No hay grilla para mostrar</p>
