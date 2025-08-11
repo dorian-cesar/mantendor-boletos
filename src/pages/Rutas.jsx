@@ -123,7 +123,33 @@ const Rutas = () => {
       showToast('Error', err.message || 'No se pudo guardar la ruta maestra', true);
     }
   };
+
+  const handleEliminar = async (id) => {
+    const result = await Swal.fire({
+      title: '¿Eliminar ruta maestra?',
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, eliminar',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/route-masters/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar');
+
+      setRutas((prev) => prev.filter((t) => t._id !== id));
+      await Swal.fire('Ruta eliminada', 'La ruta maestra fue eliminada exitosamente.', 'success');
+    } catch (err) {
+      console.error(err);
+      await Swal.fire('Error', 'No se pudo eliminar la ruta maestra', 'error');
+    }
+  };
   
+  // Modal de Blocks
   const fetchBlocksByRouteMaster = async (id) => {
     if (!id) {
       setBlocksError('Falta el ID de la ruta maestra.');
@@ -162,9 +188,118 @@ const Rutas = () => {
     fetchBlocksByRouteMaster(ruta._id);
   };
 
-  const handleEliminar = async (id) => {
+  // --- Blocks CRUD state ---
+  const [blockMode, setBlockMode] = useState('view'); // 'view' | 'create' | 'edit'
+  const [blockForm, setBlockForm] = useState({ name: '', stops: [] }); // stops: [{ name, order }]
+  const [editingBlockId, setEditingBlockId] = useState(null);
+
+  // Helpers UI para el formulario de block
+  const addBlockStop = () => {
+    setBlockForm((prev) => ({
+      ...prev,
+      stops: [...(prev.stops || []), { name: '', order: (prev.stops?.length || 0) + 1 }],
+    }));
+  };
+  const removeBlockStop = (idx) => {
+    setBlockForm((prev) => {
+      const next = (prev.stops || []).filter((_, i) => i !== idx)
+        .map((s, i) => ({ ...s, order: i + 1 }));
+    return { ...prev, stops: next };
+    });
+  };
+  const moveBlockStop = (idx, dir) => {
+    setBlockForm((prev) => {
+      const arr = [...(prev.stops || [])];
+      const j = idx + dir;
+      if (j < 0 || j >= arr.length) return prev;
+      [arr[idx], arr[j]] = [arr[j], arr[idx]];
+      const ordered = arr.map((s, i) => ({ ...s, order: i + 1 }));
+      return { ...prev, stops: ordered };
+    });
+  };
+
+  // Abrir creación de block
+  const openCreateBlock = () => {
+    setEditingBlockId(null);
+    setBlockForm({ name: '', stops: [] });
+    setBlockMode('create');
+  };
+
+  // Abrir edición de block
+  const openEditBlock = (bloque) => {
+    setEditingBlockId(bloque._id);
+    setBlockForm({
+      name: bloque.name || '',
+      stops: (bloque.stops || [])
+        .slice()
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map(s => ({ name: s.name, order: s.order })),
+    });
+    setBlockMode('edit');
+  };
+
+  // Cancelar formulario
+  const cancelBlockForm = () => {
+    setEditingBlockId(null);
+    setBlockForm({ name: '', stops: [] });
+    setBlockMode('view');
+  };
+
+  // Guardar (create/edit)
+  const saveBlock = async () => {
+    const routeMasterId = routeMasterForBlocks?._id;
+    if (!routeMasterId) {
+      showToast('Error', 'No hay routeMaster seleccionado.', true);
+      return;
+    }
+    const stops = (blockForm.stops || [])
+      .filter(s => typeof s?.name === 'string' && s.name.trim())
+      .map((s, i) => ({ name: s.name.trim(), order: i + 1 }));
+
+    if (!blockForm.name?.trim() || stops.length < 1) {
+      showToast('Datos incompletos', 'Nombre del bloque y al menos 1 parada.', true);
+      return;
+    }
+
+    const payload = {
+      name: blockForm.name.trim(),
+      routeMaster: routeMasterId,
+      stops,
+    };
+
+    try {
+      let res, body;
+      if (blockMode === 'create') {
+        res = await fetch('https://boletos.dev-wit.com/api/route-blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await fetch(`https://boletos.dev-wit.com/api/route-blocks/${encodeURIComponent(editingBlockId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      body = await parseResponseSafe(res);
+      if (!res.ok) throw new Error(body?.message || `${res.status} ${res.statusText}`);
+
+      showToast(blockMode === 'create' ? 'Bloque creado' : 'Bloque actualizado',
+                blockMode === 'create' ? 'Se creó correctamente' : 'Cambios guardados');
+      cancelBlockForm();
+      // Refrescar lista
+      await fetchBlocksByRouteMaster(routeMasterId);
+    } catch (e) {
+      console.error(e);
+      showToast('Error', e.message || 'No se pudo guardar el bloque', true);
+    }
+  };
+
+  // Eliminar block
+  const deleteBlock = async (blockId) => {
     const result = await Swal.fire({
-      title: '¿Eliminar ruta maestra?',
+      title: '¿Eliminar bloque?',
       text: 'Esta acción no se puede deshacer.',
       icon: 'warning',
       showCancelButton: true,
@@ -172,20 +307,22 @@ const Rutas = () => {
       cancelButtonColor: '#d33',
       confirmButtonText: 'Sí, eliminar',
     });
-
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/route-masters/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Error al eliminar');
+      const res = await fetch(`https://boletos.dev-wit.com/api/route-blocks/${encodeURIComponent(blockId)}`, {
+        method: 'DELETE',
+      });
+      const body = await parseResponseSafe(res);
+      if (!res.ok) throw new Error(body?.message || `${res.status} ${res.statusText}`);
 
-      setRutas((prev) => prev.filter((t) => t._id !== id));
-      await Swal.fire('Ruta eliminada', 'La ruta maestra fue eliminada exitosamente.', 'success');
-    } catch (err) {
-      console.error(err);
-      await Swal.fire('Error', 'No se pudo eliminar la ruta maestra', 'error');
+      showToast('Bloque eliminado', 'El bloque fue eliminado correctamente');
+      await fetchBlocksByRouteMaster(routeMasterForBlocks?._id);
+    } catch (e) {
+      console.error(e);
+      showToast('Error', e.message || 'No se pudo eliminar el bloque', true);
     }
-  };
+  };  
 
   return (
     <div className="dashboard-container">
@@ -365,8 +502,24 @@ const Rutas = () => {
           setBlocksData(null);
           setBlocksError('');
           setRouteMasterForBlocks(null);
+          // reset de formulario de blocks
+          setBlockMode?.('view');
+          setEditingBlockId?.(null);
+          setBlockForm?.({ name: '', stops: [] });
         }}
-        footer={<button className="btn btn-secondary" onClick={() => setModalBlocksVisible(false)}>Cerrar</button>}
+        footer={
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setModalBlocksVisible(false);
+              setBlockMode?.('view');
+              setEditingBlockId?.(null);
+              setBlockForm?.({ name: '', stops: [] });
+            }}
+          >
+            Cerrar
+          </button>
+        }
       >
         {blocksLoading && (
           <div className="text-center py-3">
@@ -383,17 +536,139 @@ const Rutas = () => {
 
         {!blocksLoading && !blocksError && blocksData && (
           <div>
-            <div className="d-flex justify-content-between align-items-center mb-2">
+            {/* Encabezado con total y botón crear */}
+            <div className="d-flex justify-content-between align-items-center mb-3">
               <div className="fw-semibold">Ruta Maestra: {blocksData.routeMaster}</div>
-              <span className="badge bg-secondary">Total: {blocksData.totalBlocks}</span>
+              <div className="d-flex align-items-center gap-2">
+                <span className="badge bg-secondary">Total: {blocksData.totalBlocks}</span>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={openCreateBlock}
+                  disabled={blockMode !== 'view'}
+                  title="Crear bloque"
+                >
+                  <i className="bi bi-plus-circle me-1" />
+                  Nuevo bloque
+                </button>
+              </div>
             </div>
 
+            {/* Formulario crear/editar bloque */}
+            {blockMode !== 'view' && (
+              <div className="mb-3 p-3 border rounded bg-light-subtle">
+                <div className="row g-2 align-items-end">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-semibold">Nombre del bloque</label>
+                    <input
+                      className="form-control"
+                      value={blockForm.name}
+                      onChange={(e) => setBlockForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="Ej: Tramo Norte"
+                    />
+                  </div>
+                  <div className="col-12 col-md-6 text-md-end">
+                    <div className="d-flex gap-2 justify-content-md-end mt-2 mt-md-0">
+                      <button className="btn btn-secondary" onClick={cancelBlockForm}>
+                        Cancelar
+                      </button>
+                      <button className="btn btn-primary" onClick={saveBlock}>
+                        {blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <label className="form-label fw-semibold mb-0">Paradas del bloque (en orden)</label>
+                    <button className="btn btn-sm btn-outline-primary" onClick={addBlockStop}>
+                      <i className="bi bi-plus" /> Añadir parada
+                    </button>
+                  </div>
+
+                  {(blockForm.stops || []).length === 0 && (
+                    <p className="text-muted fst-italic">Aún no hay paradas. Agrega al menos una.</p>
+                  )}
+
+                  {(blockForm.stops || []).map((s, idx) => (
+                    <div key={`${idx}-${s?.name || 'stop'}`} className="d-flex gap-2 align-items-center mb-2">
+                      <span className="badge bg-secondary">{idx + 1}</span>
+
+                      <select
+                        className="form-select form-select-sm flex-fill"
+                        value={s?.name || ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setBlockForm((p) => {
+                            const arr = [...(p.stops || [])];
+                            arr[idx] = { name: v, order: idx + 1 };
+                            return { ...p, stops: arr };
+                          });
+                        }}
+                      >
+                        <option value="">Selecciona ciudad</option>
+                        {(ciudades || []).map((c) => (
+                          <option key={c._id || c.name} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="btn-group btn-group-sm">
+                        <button
+                          className="btn btn-outline-secondary"
+                          onClick={() => moveBlockStop(idx, -1)}
+                          title="Subir"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary"
+                          onClick={() => moveBlockStop(idx, +1)}
+                          title="Bajar"
+                        >
+                          ↓
+                        </button>
+                      </div>
+
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => removeBlockStop(idx)}
+                        title="Quitar"
+                      >
+                        <i className="bi bi-trash" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Listado de bloques */}
             {Array.isArray(blocksData.blocks) && blocksData.blocks.length > 0 ? (
               blocksData.blocks.map((bloque) => (
                 <div key={bloque._id} className="mb-3 p-2 border rounded bg-light">
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <strong>{bloque.name}</strong>
-                    <span className="text-muted small">ID: {bloque._id}</span>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="text-muted small">ID: {bloque._id}</span>
+                      <button
+                        className="btn btn-sm btn-warning"
+                        onClick={() => openEditBlock(bloque)}
+                        disabled={blockMode !== 'view'}
+                        title="Editar bloque"
+                      >
+                        <i className="bi bi-pencil-square" />
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => deleteBlock(bloque._id)}
+                        disabled={blockMode !== 'view'}
+                        title="Eliminar bloque"
+                      >
+                        <i className="bi bi-trash" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="table-responsive">
@@ -402,7 +677,7 @@ const Rutas = () => {
                         <tr>
                           <th>#</th>
                           <th>Parada</th>
-                          <th className="text-muted">ID</th>
+                          {/* <th className="text-muted">ID</th> */}
                         </tr>
                       </thead>
                       <tbody>
@@ -412,7 +687,7 @@ const Rutas = () => {
                             <tr key={s._id || `${s.name}-${s.order}`}>
                               <td>{s.order}</td>
                               <td>{s.name}</td>
-                              <td className="text-muted small">{s._id}</td>
+                              {/* <td className="text-muted small">{s._id}</td> */}
                             </tr>
                           ))}
                       </tbody>
