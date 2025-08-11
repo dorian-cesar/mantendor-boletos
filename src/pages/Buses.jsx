@@ -65,9 +65,8 @@ const Buses = () => {
 
       if (!res.ok) throw new Error('Error al eliminar el bus');
 
-      setBuses((prev) => prev.filter((b) => b._id !== id));
-
-      await Swal.fire('Eliminado', 'El bus fue eliminado correctamente.', 'success');
+      setBuses((prev) => prev.filter((b) => b._id !== id));      
+      showToast('Éxito', 'El bus fue eliminado correctamente.');
     } catch (err) {
       console.error(err);
       await Swal.fire('Error', 'No se pudo eliminar el bus.', 'error');
