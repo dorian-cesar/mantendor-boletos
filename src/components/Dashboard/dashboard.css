@@ -100,3 +100,8 @@
 .chevron-icon.rotated {
   transform: rotate(90deg);
 }
+
+.sortable-ghost { opacity: .6; }
+.sortable-chosen { outline: 2px dashed var(--bs-primary); }
+.drag-handle { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }

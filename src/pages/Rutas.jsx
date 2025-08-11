@@ -6,6 +6,7 @@ import { showToast } from '@components/Toast/Toast';
 import ModalBase from '@components/ModalBase/ModalBase';
 import RutaEditor from '@components/RutaEditor/RutaEditor';
 import Swal from 'sweetalert2';
+import { ReactSortable } from 'react-sortablejs';
 
 const Rutas = () => {
   const [rutas, setRutas] = useState([]);
@@ -553,8 +554,8 @@ const Rutas = () => {
               </div>
             </div>
 
-            {/* Formulario crear/editar bloque */}
-            {blockMode !== 'view' && (
+              {/* Formulario crear/editar bloque */}
+              {blockMode !== 'view' && (
               <div className="mb-3 p-3 border rounded bg-light-subtle">
                 <div className="row g-2 align-items-end">
                   <div className="col-12 col-md-6">
@@ -580,121 +581,143 @@ const Rutas = () => {
 
                 <div className="mt-3">
                   <div className="d-flex justify-content-between align-items-center mb-2">
-                    <label className="form-label fw-semibold mb-0">Paradas del bloque (en orden)</label>
+                    <label className="form-label fw-semibold mb-0">
+                      Paradas del bloque (arrástralas para reordenar)
+                    </label>
                     <button className="btn btn-sm btn-outline-primary" onClick={addBlockStop}>
                       <i className="bi bi-plus" /> Añadir parada
                     </button>
                   </div>
 
-                  {(blockForm.stops || []).length === 0 && (
-                    <p className="text-muted fst-italic">Aún no hay paradas. Agrega al menos una.</p>
-                  )}
-
-                  {(blockForm.stops || []).map((s, idx) => (
-                    <div key={`${idx}-${s?.name || 'stop'}`} className="d-flex gap-2 align-items-center mb-2">
-                      <span className="badge bg-secondary">{idx + 1}</span>
-
-                      <select
-                        className="form-select form-select-sm flex-fill"
-                        value={s?.name || ''}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setBlockForm((p) => {
-                            const arr = [...(p.stops || [])];
-                            arr[idx] = { name: v, order: idx + 1 };
-                            return { ...p, stops: arr };
-                          });
-                        }}
+                  {/* Drag & Drop de paradas */}
+                  <ReactSortable
+                    list={blockForm.stops || []}
+                    setList={(newOrder) =>
+                      setBlockForm((p) => ({
+                        ...p,
+                        stops: (newOrder || []).map((s, i) => ({ name: s.name || '', order: i + 1 })),
+                      }))
+                    }
+                    animation={180}
+                    handle=".drag-handle"
+                    ghostClass="sortable-ghost"
+                    chosenClass="sortable-chosen"
+                  >
+                    {(blockForm.stops || []).map((s, idx) => (
+                      <div
+                        key={`${idx}-${s?.name || 'stop'}`}
+                        className="d-flex gap-2 align-items-center mb-2 p-2 border rounded bg-white"
                       >
-                        <option value="">Selecciona ciudad</option>
-                        {(ciudades || []).map((c) => (
-                          <option key={c._id || c.name} value={c.name}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
+                        {/* Asa de arrastre */}
+                        <span
+                          className="drag-handle d-inline-flex align-items-center justify-content-center px-2"
+                          title="Arrastrar para reordenar"
+                          style={{ cursor: 'grab' }}
+                        >
+                          <i className="bi bi-grip-vertical" />
+                        </span>
 
-                      <div className="btn-group btn-group-sm">
-                        <button
-                          className="btn btn-outline-secondary"
-                          onClick={() => moveBlockStop(idx, -1)}
-                          title="Subir"
+                        {/* Selector de ciudad */}
+                        <select
+                          className="form-select form-select-sm flex-fill"
+                          value={s?.name || ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setBlockForm((p) => {
+                              const arr = [...(p.stops || [])];
+                              arr[idx] = { name: v, order: idx + 1 };
+                              return { ...p, stops: arr };
+                            });
+                          }}
                         >
-                          ↑
-                        </button>
+                          <option value="">Selecciona ciudad</option>
+                          {(ciudades || []).map((c) => (
+                            <option key={c._id || c.name} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Eliminar */}
                         <button
-                          className="btn btn-outline-secondary"
-                          onClick={() => moveBlockStop(idx, +1)}
-                          title="Bajar"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => removeBlockStop(idx)}
+                          title="Quitar parada"
                         >
-                          ↓
+                          <i className="bi bi-trash" />
                         </button>
                       </div>
+                    ))}
+                  </ReactSortable>
 
-                      <button
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => removeBlockStop(idx)}
-                        title="Quitar"
-                      >
-                        <i className="bi bi-trash" />
-                      </button>
-                    </div>
-                  ))}
+                  {(blockForm.stops || []).length === 0 && (
+                    <p className="text-muted fst-italic mt-2">Aún no hay paradas. Agrega al menos una.</p>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Listado de bloques */}
             {Array.isArray(blocksData.blocks) && blocksData.blocks.length > 0 ? (
-              blocksData.blocks.map((bloque) => (
-                <div key={bloque._id} className="mb-3 p-2 border rounded bg-light">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <strong>{bloque.name}</strong>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="text-muted small">ID: {bloque._id}</span>
-                      <button
-                        className="btn btn-sm btn-warning"
-                        onClick={() => openEditBlock(bloque)}
-                        disabled={blockMode !== 'view'}
-                        title="Editar bloque"
-                      >
-                        <i className="bi bi-pencil-square" />
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => deleteBlock(bloque._id)}
-                        disabled={blockMode !== 'view'}
-                        title="Eliminar bloque"
-                      >
-                        <i className="bi bi-trash" />
-                      </button>
+              blocksData.blocks.map((bloque) => {
+                const isEditingThis = blockMode === 'edit' && editingBlockId === bloque._id;
+                const disableOthers = blockMode !== 'view' && !isEditingThis;
+
+                return (
+                  <div
+                    key={bloque._id}
+                    className={`mb-3 p-2 border rounded ${isEditingThis ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'bg-light'}`}
+                    style={disableOthers ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
+                  >
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <strong>{bloque.name}</strong>
+                        {isEditingThis && <span className="badge bg-primary">Editando…</span>}
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">ID: {bloque._id}</span>
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={() => openEditBlock(bloque)}
+                          disabled={blockMode !== 'view'}
+                          title="Editar bloque"
+                        >
+                          <i className="bi bi-pencil-square" />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => deleteBlock(bloque._id)}
+                          disabled={blockMode !== 'view'}
+                          title="Eliminar bloque"
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-sm table-striped mb-0">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Parada</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...(bloque.stops || [])]
+                            .sort((a, b) => (a.order || 0) - (b.order || 0))
+                            .map((s) => (
+                              <tr key={s._id || `${s.name}-${s.order}`}>
+                                <td>{s.order}</td>
+                                <td>{s.name}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-
-                  <div className="table-responsive">
-                    <table className="table table-sm table-striped mb-0">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>Parada</th>
-                          {/* <th className="text-muted">ID</th> */}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...(bloque.stops || [])]
-                          .sort((a, b) => (a.order || 0) - (b.order || 0))
-                          .map((s) => (
-                            <tr key={s._id || `${s.name}-${s.order}`}>
-                              <td>{s.order}</td>
-                              <td>{s.name}</td>
-                              {/* <td className="text-muted small">{s._id}</td> */}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-muted">No hay bloques para esta ruta.</p>
             )}
