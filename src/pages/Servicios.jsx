@@ -599,34 +599,11 @@ const Servicios = () => {
                   onClick={async () => {
                     setActualizando(true);
                     try {
-                      const res = await fetch('https://boletos.dev-wit.com/api/services/all');
-                      if (!res.ok) throw new Error('Error al obtener los servicios desde el servidor');
-                      const data = await res.json();
-
-                      setTodosLosServicios((prev) => {
-                        const nuevos = [];
-
-                        data.forEach((nuevo) => {
-                          const antiguo = prev.find(s => s._id === nuevo._id);
-                          const haCambiado =
-                            !antiguo ||
-                            antiguo.departureTime !== nuevo.departureTime ||
-                            antiguo.origin !== nuevo.origin ||
-                            antiguo.destination !== nuevo.destination ||
-                            antiguo.busType !== nuevo.busType;
-
-                          nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
-                        });
-
-                        // Eliminar servicios que ya no existen en la API
-                        const ids = data.map(s => s._id);
-                        return nuevos.filter(s => ids.includes(s._id));
-                      });
-
+                      await fetchServicios(); // reutiliza headers + normalización + agrupación
                       showToast('Actualizado', 'Lista de servicios sincronizada correctamente.');
-                    } catch (error) {
-                      console.error(error);
-                      showToast('Error', error.message || 'No se pudo actualizar la lista de servicios', true);
+                    } catch (e) {
+                      console.error(e);
+                      showToast('Error', 'No se pudo actualizar la lista de servicios', true);
                     } finally {
                       setActualizando(false);
                     }
@@ -723,19 +700,7 @@ const Servicios = () => {
 
             <Tabs
               activeKey={fechaSeleccionada}
-              onSelect={(fecha) => {
-                setFechaSeleccionada(fecha);
-                if (serviciosPorFecha[fecha]) {
-                  setServiciosFiltrados(ordenarServicios(
-                    serviciosPorFecha[fecha], 
-                    orden, 
-                    ordenAscendente
-                  ));
-                } else {
-                  setServiciosFiltrados([]);
-                }
-                setFechaSeleccionada(fecha);
-              }}
+              onSelect={(fecha) => setFechaSeleccionada(fecha)}
               className="mb-3"
             >
               {/* Tab: Todos */}
