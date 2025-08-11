@@ -29,8 +29,15 @@ const Rutas = () => {
   const [blocksLoading, setBlocksLoading] = useState(false);
   const [blocksError, setBlocksError] = useState('');
   const [blocksData, setBlocksData] = useState(null); // { routeMaster, totalBlocks, blocks: [...] }
-
   const [actualizando, setActualizando] = useState(false);
+
+  // Solo paradas definidas en la ruta maestra actual
+  const allowedRMStops = React.useMemo(() => {
+    const arr = Array.isArray(routeMasterForBlocks?.stops) ? routeMasterForBlocks.stops : [];
+    const ordered = arr.slice().sort((a,b) => (a.order || 0) - (b.order || 0));
+    // nombres únicos, preservando orden
+    return [...new Set(ordered.map(s => s?.name).filter(Boolean))];
+  }, [routeMasterForBlocks]);
 
   // Helpers
   const parseResponseSafe = async (res) => {
@@ -196,28 +203,20 @@ const Rutas = () => {
 
   // Helpers UI para el formulario de block
   const addBlockStop = () => {
-    setBlockForm((prev) => ({
-      ...prev,
-      stops: [...(prev.stops || []), { name: '', order: (prev.stops?.length || 0) + 1 }],
-    }));
+    setBlockForm(prev => {
+      const nextName = allowedRMStops[0] || '';
+      const next = [...(prev.stops || []), { name: nextName, order: (prev.stops?.length || 0) + 1 }];
+      return { ...prev, stops: next };
+    });
   };
+
   const removeBlockStop = (idx) => {
     setBlockForm((prev) => {
       const next = (prev.stops || []).filter((_, i) => i !== idx)
         .map((s, i) => ({ ...s, order: i + 1 }));
     return { ...prev, stops: next };
     });
-  };
-  const moveBlockStop = (idx, dir) => {
-    setBlockForm((prev) => {
-      const arr = [...(prev.stops || [])];
-      const j = idx + dir;
-      if (j < 0 || j >= arr.length) return prev;
-      [arr[idx], arr[j]] = [arr[j], arr[idx]];
-      const ordered = arr.map((s, i) => ({ ...s, order: i + 1 }));
-      return { ...prev, stops: ordered };
-    });
-  };
+  };  
 
   // Abrir creación de block
   const openCreateBlock = () => {
@@ -239,6 +238,15 @@ const Rutas = () => {
     setBlockMode('edit');
   };
 
+  useEffect(() => {
+    if (blockMode !== 'view' && Array.isArray(blockForm.stops)) {
+      const filtered = blockForm.stops.filter(s => allowedRMStops.includes(s?.name));
+      if (filtered.length !== blockForm.stops.length) {
+        setBlockForm(p => ({ ...p, stops: filtered.map((s,i) => ({ name: s.name, order: i+1 })) }));
+      }
+    }
+  }, [allowedRMStops, blockMode]); 
+
   // Cancelar formulario
   const cancelBlockForm = () => {
     setEditingBlockId(null);
@@ -259,6 +267,12 @@ const Rutas = () => {
 
     if (!blockForm.name?.trim() || stops.length < 1) {
       showToast('Datos incompletos', 'Nombre del bloque y al menos 1 parada.', true);
+      return;
+    }
+    // Validar que todas las paradas estén dentro de la ruta maestra
+    const invalid = (blockForm.stops || []).some(s => !allowedRMStops.includes((s?.name || '').trim()));
+    if (invalid) {
+      showToast('Paradas no válidas', 'Solo puedes usar ciudades definidas en la ruta maestra.', true);
       return;
     }
 
@@ -631,10 +645,8 @@ const Rutas = () => {
                           }}
                         >
                           <option value="">Selecciona ciudad</option>
-                          {(ciudades || []).map((c) => (
-                            <option key={c._id || c.name} value={c.name}>
-                              {c.name}
-                            </option>
+                          {allowedRMStops.map((name) => (
+                            <option key={name} value={name}>{name}</option>
                           ))}
                         </select>
 
