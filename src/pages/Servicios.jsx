@@ -55,6 +55,87 @@ const Servicios = () => {
   const [origenesDisponibles, setOrigenesDisponibles] = useState([]);
   const [actualizando, setActualizando] = useState(false);  
 
+  // === Exportación a CSV ===
+  const [exportMode, setExportMode] = useState('visibles'); // 'visibles' | 'rango' | 'todos'
+  const [exportFrom, setExportFrom] = useState('');         // YYYY-MM-DD
+  const [exportTo, setExportTo] = useState('');             // YYYY-MM-DD
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const escapeCSV = (value) => {
+    if (value === null || value === undefined) return '';
+    const s = String(value).replace(/"/g, '""');
+    return /[",\n\r;]/.test(s) ? `"${s}"` : s;
+  };
+
+  const buildCSV = (rows) => {
+    const header = [
+      'ID','Origen','Destino','TerminalOrigen','TerminalDestino',
+      'FechaSalida','HoraSalida','FechaLlegada','HoraLlegada',
+      'TipoBus','Precio1Piso','Precio2Piso','Compañía','Layout'
+    ];
+    const lines = [header.map(escapeCSV).join(',')];
+
+    rows.forEach(s => {
+      lines.push([
+        s._id,
+        s.origin,
+        s.destination,
+        s.terminalOrigin,
+        s.terminalDestination,
+        s.date,           // ya la normalizas a YYYY-MM-DD
+        s.departureTime,
+        s.arrivalDate,    // en fetchServicios la pasas a YYYY-MM-DD
+        s.arrivalTime,
+        s.busTypeDescription,
+        s.priceFirst,
+        s.priceSecond,
+        s.company,
+        s.busLayout
+      ].map(escapeCSV).join(','));
+    });
+
+    // BOM para acentos en Excel
+    return '\uFEFF' + lines.join('\r\n');
+  };
+
+  const downloadCSV = (csv, filename) => {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = () => {
+    let records = [];
+    if (exportMode === 'visibles') {
+      records = serviciosFiltrados;
+    } else if (exportMode === 'todos') {
+      records = todosLosServicios;
+    } else { // rango
+      if (!exportFrom || !exportTo) {
+        showToast('Atención', 'Selecciona fechas Desde y Hasta para exportar.', true);
+        return;
+      }
+      const from = exportFrom; // YYYY-MM-DD
+      const to = exportTo;
+      records = (todosLosServicios || []).filter(s => s.date >= from && s.date <= to);
+    }
+
+    if (!records || records.length === 0) {
+      showToast('Atención', 'No hay registros para exportar.', true);
+      return;
+    }
+
+    const csv = buildCSV(records);
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const suffix = exportMode === 'rango' ? `${exportFrom}_a_${exportTo}` : exportMode;
+    downloadCSV(csv, `servicios_${suffix}_${stamp}.csv`);
+  };
+
   const ordenarServicios = (lista, criterio, asc = true) => {
     if (!lista) return [];
     const sign = asc ? 1 : -1;
@@ -501,8 +582,17 @@ const Servicios = () => {
 
           <div className="stats-box">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h4 className="mb-0">Servicios programados por día</h4>
+              <h4 className="mb-0">Servicios programados por día</h4>                        
               <div className="d-flex gap-2">
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    className="btn btn-success btn-sm"
+                    onClick={() => setExportModalVisible(true)}
+                  >
+                    <i className="bi bi-download me-1"></i> Exportar CSV
+                  </button>
+                </div> 
+
                 <button
                   className="btn btn-outline-secondary btn-sm"
                   disabled={actualizando}
@@ -1226,6 +1316,72 @@ const Servicios = () => {
                   </div>
                 );
               })()}
+      </ModalBase>
+
+      <ModalBase
+        visible={exportModalVisible}
+        title="Exportar servicios a CSV"
+        size="md"
+        onClose={() => setExportModalVisible(false)}
+        footer={
+          <div className="d-flex justify-content-end gap-2">
+            <button className="btn btn-secondary" onClick={() => setExportModalVisible(false)}>
+              Cancelar
+            </button>
+            <button
+              className="btn btn-success"
+              onClick={() => {
+                // pequeña validación de rango
+                if (exportMode === 'rango' && (!exportFrom || !exportTo || exportFrom > exportTo)) {
+                  showToast('Atención', 'Rango de fechas inválido.', true);
+                  return;
+                }
+                handleExport();
+                setExportModalVisible(false);
+              }}
+            >
+              <i className="bi bi-download me-1"></i> Exportar CSV
+            </button>
+          </div>
+        }
+      >
+        <div className="row g-3">
+          <div className="col-12">
+            <label className="form-label">Qué exportar</label>
+            <select
+              className="form-select"
+              value={exportMode}
+              onChange={(e) => setExportMode(e.target.value)}
+            >
+              <option value="visibles">Registros visibles (filtros/pestaña actuales)</option>
+              <option value="rango">Por rango de fechas</option>
+              <option value="todos">Todos los registros</option>
+            </select>
+          </div>
+
+          {exportMode === 'rango' && (
+            <>
+              <div className="col-6">
+                <label className="form-label">Desde</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={exportFrom}
+                  onChange={(e) => setExportFrom(e.target.value)}
+                />
+              </div>
+              <div className="col-6">
+                <label className="form-label">Hasta</label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={exportTo}
+                  onChange={(e) => setExportTo(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </ModalBase>
     </>
   );
