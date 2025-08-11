@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
@@ -30,6 +30,10 @@ const Rutas = () => {
   const [blocksError, setBlocksError] = useState('');
   const [blocksData, setBlocksData] = useState(null); // { routeMaster, totalBlocks, blocks: [...] }
   const [actualizando, setActualizando] = useState(false);
+  const [blockLayoutId, setBlockLayoutId] = useState('');
+  const [availableLayouts, setAvailableLayouts] = useState([]);
+  const [layoutsLoading, setLayoutsLoading] = useState(false);
+  const [layoutsError, setLayoutsError] = useState('');
 
   // Solo paradas definidas en la ruta maestra actual
   const allowedRMStops = React.useMemo(() => {
@@ -38,6 +42,54 @@ const Rutas = () => {
     // nombres únicos, preservando orden
     return [...new Set(ordered.map(s => s?.name).filter(Boolean))];
   }, [routeMasterForBlocks]);
+
+  const fetchLayouts = async () => {
+    setLayoutsLoading(true);
+    setLayoutsError('');
+    setAvailableLayouts([]);
+    try {
+      const res = await fetch('https://boletos.dev-wit.com/api/layouts/');
+      const text = await res.text();
+      let body;
+      try { body = JSON.parse(text); } catch { throw new Error('Respuesta no JSON al listar layouts'); }
+
+      if (!res.ok || !Array.isArray(body)) {
+        throw new Error('No se pudo obtener la lista de layouts');
+      }
+
+      // mapeo directo (no viene _id, usamos name como identificador)
+      const list = body.map(l => ({
+        _id: l.name, // usamos name como id lógico
+        name: l.name,
+        pisos: l.pisos,
+        capacidad: l.capacidad,
+        columns: l.columns,
+        rows: l.rows,
+        tipo_Asiento_piso_1: l.tipo_Asiento_piso_1,
+        tipo_Asiento_piso_2: l.tipo_Asiento_piso_2,
+      }));
+
+      setAvailableLayouts(list);
+    } catch (e) {
+      setLayoutsError(e.message || 'Error al cargar layouts');
+    } finally {
+      setLayoutsLoading(false);
+    }
+  };
+
+  // opcional: cargar cuando abres el modal de blocks
+  useEffect(() => {
+    if (modalBlocksVisible) fetchLayouts();
+  }, [modalBlocksVisible]);
+
+  // ayuda para etiqueta y selección actual
+  const selectedLayout = useMemo(
+    () => availableLayouts.find(l => l._id === blockLayoutId) || null,
+    [availableLayouts, blockLayoutId]
+  );
+
+  const layoutLabel = (l) =>
+    `${l.name} • ${l.pisos ?? '-'} pisos • ${l.capacidad ?? '-'} pax • ${l.columns ?? '-'}×${l.rows ?? '-'}`;
 
   // Helpers
   const parseResponseSafe = async (res) => {
@@ -201,10 +253,14 @@ const Rutas = () => {
   const [blockForm, setBlockForm] = useState({ name: '', stops: [] }); // stops: [{ name, order }]
   const [editingBlockId, setEditingBlockId] = useState(null);
 
-  // Helpers UI para el formulario de block
+  // Helpers UI para el formulario de block 
   const addBlockStop = () => {
+    if (!allowedRMStops.length) {
+      showToast('Sin paradas disponibles', 'Esta ruta maestra no tiene paradas configuradas.', true);
+      return;
+    }
     setBlockForm(prev => {
-      const nextName = allowedRMStops[0] || '';
+      const nextName = allowedRMStops[0];
       const next = [...(prev.stops || []), { name: nextName, order: (prev.stops?.length || 0) + 1 }];
       return { ...prev, stops: next };
     });
@@ -222,10 +278,11 @@ const Rutas = () => {
   const openCreateBlock = () => {
     setEditingBlockId(null);
     setBlockForm({ name: '', stops: [] });
+    setBlockLayoutId('');           // limpiar selección
     setBlockMode('create');
+    fetchLayouts();                 // cargar layouts
   };
 
-  // Abrir edición de block
   const openEditBlock = (bloque) => {
     setEditingBlockId(bloque._id);
     setBlockForm({
@@ -235,7 +292,9 @@ const Rutas = () => {
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(s => ({ name: s.name, order: s.order })),
     });
+    setBlockLayoutId(bloque?.layout?._id || bloque?.layoutId || bloque?.layout || '');
     setBlockMode('edit');
+    fetchLayouts();                 // cargar layouts
   };
 
   useEffect(() => {
@@ -261,49 +320,60 @@ const Rutas = () => {
       showToast('Error', 'No hay routeMaster seleccionado.', true);
       return;
     }
+
     const stops = (blockForm.stops || [])
       .filter(s => typeof s?.name === 'string' && s.name.trim())
-      .map((s, i) => ({ name: s.name.trim(), order: i + 1 }));
+      .map((s, i) => ({ name: String(s.name).trim(), order: i + 1 }));
 
-    if (!blockForm.name?.trim() || stops.length < 1) {
-      showToast('Datos incompletos', 'Nombre del bloque y al menos 1 parada.', true);
+    if (!blockForm.name?.trim() || stops.length < 2) {
+      showToast('Datos incompletos', 'Nombre del bloque y al menos 2 paradas.', true);
       return;
     }
-    // Validar que todas las paradas estén dentro de la ruta maestra
-    const invalid = (blockForm.stops || []).some(s => !allowedRMStops.includes((s?.name || '').trim()));
+
+    if (!blockLayoutId?.trim()) {
+      showToast('Layout requerido', 'Debes seleccionar un layout.', true);
+      return;
+    }
+
+    const invalid = stops.some(s => !allowedRMStops.includes(s.name));
     if (invalid) {
       showToast('Paradas no válidas', 'Solo puedes usar ciudades definidas en la ruta maestra.', true);
       return;
     }
 
     const payload = {
+      routeMasterId,
       name: blockForm.name.trim(),
-      routeMaster: routeMasterId,
-      stops,
+      stops,                      // [{ name, order }]
+      layoutId: blockLayoutId.trim(),  // <- _id del layout seleccionado
     };
 
     try {
-      let res, body;
-      if (blockMode === 'create') {
-        res = await fetch('https://boletos.dev-wit.com/api/route-blocks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch(`https://boletos.dev-wit.com/api/route-blocks/${encodeURIComponent(editingBlockId)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
-      body = await parseResponseSafe(res);
-      if (!res.ok) throw new Error(body?.message || `${res.status} ${res.statusText}`);
+      const isCreate = blockMode === 'create';
+      const url = isCreate
+        ? 'https://boletos.dev-wit.com/api/route-blocks'
+        : `https://boletos.dev-wit.com/api/route-blocks/${encodeURIComponent(editingBlockId)}`;
 
-      showToast(blockMode === 'create' ? 'Bloque creado' : 'Bloque actualizado',
-                blockMode === 'create' ? 'Se creó correctamente' : 'Cambios guardados');
+      const res = await fetch(url, {
+        method: isCreate ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let body;
+      try { body = JSON.parse(text); } catch { body = { _raw: text }; }
+
+      if (!res.ok) {
+        console.error('[Blocks] Error', res.status, res.statusText, 'body:', body);
+        const msg = body?.message || body?.error || `${res.status} ${res.statusText || ''}`.trim();
+        showToast('Error', msg, true);
+        return;
+      }
+
+      showToast(isCreate ? 'Bloque creado' : 'Bloque actualizado',
+                isCreate ? 'Se creó correctamente' : 'Cambios guardados');
       cancelBlockForm();
-      // Refrescar lista
       await fetchBlocksByRouteMaster(routeMasterId);
     } catch (e) {
       console.error(e);
@@ -517,10 +587,11 @@ const Rutas = () => {
           setBlocksData(null);
           setBlocksError('');
           setRouteMasterForBlocks(null);
-          // reset de formulario de blocks
           setBlockMode?.('view');
           setEditingBlockId?.(null);
           setBlockForm?.({ name: '', stops: [] });
+          setBlockLayoutId(''); // <-- add
+          setBlockLayoutId('');
         }}
         footer={
           <button
@@ -581,6 +652,43 @@ const Rutas = () => {
                       placeholder="Ej: Tramo Norte"
                     />
                   </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-semibold">Layout (requerido)</label>
+
+                    {layoutsLoading && <div className="form-text">Cargando layouts…</div>}
+                    {!layoutsLoading && layoutsError && (
+                      <div className="alert alert-warning py-1 px-2 mb-2">{layoutsError}</div>
+                    )}
+
+                    {!layoutsLoading && !layoutsError && (
+                      <>
+                        <select
+                          className="form-select"
+                          value={blockLayoutId}
+                          onChange={(e) => setBlockLayoutId(e.target.value)}
+                        >
+                          <option value="" disabled>Seleccione un layout</option>
+                          {availableLayouts.map(l => (
+                            <option key={l._id} value={l._id}>
+                              {layoutLabel(l)}
+                            </option>
+                          ))}
+                        </select>
+
+                        {selectedLayout && (
+                          <div className="mt-2 small text-muted">
+                            <div><strong>{selectedLayout.name}</strong></div>
+                            <div>Pisos: {selectedLayout.pisos ?? '-'}</div>
+                            <div>Capacidad: {selectedLayout.capacidad ?? '-'}</div>
+                            <div>Disposición: {selectedLayout.columns ?? '-'} columnas × {selectedLayout.rows ?? '-'} filas</div>
+                            <div>Asientos P1: {selectedLayout.tipo_Asiento_piso_1 ?? '-'}</div>
+                            <div>Asientos P2: {selectedLayout.tipo_Asiento_piso_2 ?? '-'}</div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                   <div className="col-12 col-md-6 text-md-end">
                     <div className="d-flex gap-2 justify-content-md-end mt-2 mt-md-0">
                       <button className="btn btn-secondary" onClick={cancelBlockForm}>
