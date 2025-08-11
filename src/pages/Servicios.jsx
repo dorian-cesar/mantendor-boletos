@@ -58,41 +58,24 @@ const Servicios = () => {
 
   const ordenarServicios = (lista, criterio, asc = true) => {
     if (!lista) return [];
-
     const sorted = [...lista].sort((a, b) => {
       let resultado = 0;
 
-      switch (criterio) {
-        case 'hora': {
-          const getMinutos = (horaStr) => {
-            if (!horaStr || !horaStr.includes(':')) return null;
-            const [h, m] = horaStr.split(':').map(Number);
-            if (isNaN(h) || isNaN(m)) return null;
-            return h * 60 + m;
-          };
-
-          const minutosA = getMinutos(a.departureTime);
-          const minutosB = getMinutos(b.departureTime);
-
-          if (minutosA === null && minutosB === null) return 0;
-          if (minutosA === null) return asc ? 1 : -1;
-          if (minutosB === null) return asc ? -1 : 1;
-
-          resultado = asc ? minutosA - minutosB : minutosB - minutosA;
-          break;
-        }
-
-        case 'tipoBus':
-          resultado = (a.busTypeDescription || '').localeCompare(b.busTypeDescription || '');
-          break;
-
-        default:
-          resultado = 0;
+      if (criterio === 'hora') {
+        const toMin = (s) => {
+          if (!s || !s.includes(':')) return Number.POSITIVE_INFINITY; // nulos al final en asc
+          const [h, m] = s.split(':').map(Number);
+          return (isNaN(h) || isNaN(m)) ? Number.POSITIVE_INFINITY : h * 60 + m;
+        };
+        resultado = toMin(a.departureTime) - toMin(b.departureTime);
+      } else if (criterio === 'tipoBus') {
+        resultado = (a.busTypeDescription || '').localeCompare(b.busTypeDescription || '');
+      } else {
+        resultado = 0; // 'fecha' (por defecto) no cambia el orden
       }
 
       return asc ? resultado : -resultado;
     });
-
     return sorted;
   };
 
@@ -601,7 +584,7 @@ const Servicios = () => {
               />
             </div>
 
-            {/* <div className="mb-3 d-flex align-items-center gap-3">
+            <div className="mb-3 d-flex align-items-center gap-3">
               <label className="form-label mb-0">Ordenar por:</label>
               <select
                 className="form-select form-select-sm"
@@ -624,7 +607,7 @@ const Servicios = () => {
                   <i className="bi bi-sort-up"></i>
                 )}
               </button>
-            </div> */}
+            </div>
 
             <div className="mb-3 d-flex gap-3 align-items-end">
               <div>
