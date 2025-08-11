@@ -3,32 +3,35 @@ import React from 'react';
 import { ReactSortable } from 'react-sortablejs';
 import './RutaEditor.css';
 
-
-
 const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
+  const stops = Array.isArray(formRuta?.stops) ? formRuta.stops : [];
+  const safeCiudades = Array.isArray(ciudades) ? ciudades : [];
+
   const handleInputChange = (campo, valor) => {
     setFormRuta((prev) => ({ ...prev, [campo]: valor }));
   };
 
   const handleStopsChange = (nuevasStops) => {
-    setFormRuta((prev) => ({ ...prev, stops: nuevasStops }));
+    const normalizadas = (nuevasStops || [])
+      .filter((s) => s && typeof s === 'object')
+      .map((s, i) => ({ city: s.city ?? '', order: i + 1 }));
+    setFormRuta((prev) => ({ ...prev, stops: normalizadas }));
   };
 
   const handleAgregarStop = () => {
-    const nuevasStops = [...formRuta.stops, { city: '', order: formRuta.stops.length + 1 }];
+    const nuevasStops = [...stops, { city: '', order: stops.length + 1 }];
     handleStopsChange(nuevasStops);
   };
 
   const handleDeleteStop = (index) => {
-    const nuevasStops = formRuta.stops.filter((_, i) => i !== index);
-    handleStopsChange(nuevasStops.map((s, i) => ({ ...s, order: i + 1 })));
+    const nuevasStops = stops.filter((_, i) => i !== index).map((s, i) => ({ ...s, order: i + 1 }));
+    handleStopsChange(nuevasStops);
   };
 
+  // setList nos entrega un array de strings (ciudades) según el drag
   const actualizarOrden = (ordenado) => {
-    const nuevasStops = ordenado.map((city, idx) => ({
-      city,
-      order: idx + 1,
-    }));
+    const arr = Array.isArray(ordenado) ? ordenado : [];
+    const nuevasStops = arr.map((city, idx) => ({ city: city ?? '', order: idx + 1 }));
     handleStopsChange(nuevasStops);
   };
 
@@ -38,7 +41,7 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
         <label className="form-label">Nombre de la ruta</label>
         <input
           className="form-control"
-          value={formRuta.name}
+          value={formRuta?.name ?? ''}
           onChange={(e) => handleInputChange('name', e.target.value)}
         />
       </div>
@@ -47,12 +50,12 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
         <label className="form-label">Origen</label>
         <select
           className="form-select"
-          value={formRuta.origin}
+          value={formRuta?.origin ?? ''}
           onChange={(e) => handleInputChange('origin', e.target.value)}
         >
           <option value="">Selecciona ciudad</option>
-          {ciudades.map((c) => (
-            <option key={c._id} value={c.name}>{c.name}</option>
+          {safeCiudades.map((c) => (
+            <option key={c._id || c.name} value={c.name}>{c.name}</option>
           ))}
         </select>
       </div>
@@ -61,12 +64,12 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
         <label className="form-label">Destino</label>
         <select
           className="form-select"
-          value={formRuta.destination}
+          value={formRuta?.destination ?? ''}
           onChange={(e) => handleInputChange('destination', e.target.value)}
         >
           <option value="">Selecciona ciudad</option>
-          {ciudades.map((c) => (
-            <option key={c._id} value={c.name}>{c.name}</option>
+          {safeCiudades.map((c) => (
+            <option key={c._id || c.name} value={c.name}>{c.name}</option>
           ))}
         </select>
       </div>
@@ -76,11 +79,11 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
         <ReactSortable
           tag="div"
           className="d-flex flex-column gap-2"
-          list={formRuta.stops.map((s) => s.city)}
+          list={stops.map((s) => s?.city ?? '')}
           setList={actualizarOrden}
         >
-          {formRuta.stops.map((stop, index) => (
-            <div key={index} className="d-flex gap-2 align-items-center bg-light border rounded p-2 ">
+          {stops.map((stop, index) => (
+            <div key={`${index}-${stop?.city ?? ''}`} className="d-flex gap-2 align-items-center bg-light border rounded p-2 ">
               <span className="drag-handle d-flex flex-column justify-content-center me-2 cursor-pointer">
                 <i className="bi bi-arrow-up-short"></i>
                 <i className="bi bi-arrow-down-short"></i>
@@ -88,18 +91,19 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
 
               <select
                 className="form-select form-select-sm flex-grow-1"
-                value={stop.city}
+                value={stop?.city ?? ''}
                 onChange={(e) => {
-                  const nuevasStops = [...formRuta.stops];
-                  nuevasStops[index].city = e.target.value;
+                  const nuevasStops = [...stops];
+                  nuevasStops[index] = { city: e.target.value, order: index + 1 };
                   handleStopsChange(nuevasStops);
                 }}
               >
                 <option value="">Selecciona ciudad</option>
-                {ciudades.map((c) => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
+                {safeCiudades.map((c) => (
+                  <option key={c._id || c.name} value={c.name}>{c.name}</option>
                 ))}
               </select>
+
               <button
                 type="button"
                 className="btn btn-danger btn-sm"
@@ -110,7 +114,6 @@ const RutaEditor = ({ formRuta, setFormRuta, ciudades }) => {
             </div>
           ))}
         </ReactSortable>
-
 
         <button
           type="button"
