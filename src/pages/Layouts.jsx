@@ -611,8 +611,8 @@ const Layout = () => {
                 <thead className="table-light">
                   <tr>                    
                     <th>Nombre</th>
-                    <th>Filas</th>
-                    <th>Columnas</th>
+                    {/* <th>Filas</th>
+                    <th>Columnas</th> */}
                     <th>Pisos</th>
                     <th>Capacidad</th>
                     <th>Tipo asiento 1</th>
@@ -624,8 +624,8 @@ const Layout = () => {
                   {layouts.map((layout) => (
                     <tr key={layout.name}>                      
                       <td>{layout.name}</td>
-                      <td>{layout.rows}</td>
-                      <td>{layout.columns}</td>
+                      {/* <td>{layout.rows}</td>
+                      <td>{layout.columns}</td> */}
                       <td>{layout.pisos}</td>
                       <td>{layout.capacidad}</td>
                       <td>{layout.tipo_Asiento_piso_1}</td>
