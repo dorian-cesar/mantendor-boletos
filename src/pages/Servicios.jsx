@@ -10,8 +10,7 @@ const Servicios = () => {
     const [a, m, d] = fechaStr.split("-");
     return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${a}`;
   };
-  const [todosLosServicios, setTodosLosServicios] = useState([]);
-  const [servicios, setServicios] = useState([]);
+  const [todosLosServicios, setTodosLosServicios] = useState([]);  
   const [serviciosFiltrados, setServiciosFiltrados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -44,7 +43,7 @@ const Servicios = () => {
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [servicioEditando, setServicioEditando] = useState(null);
   const [editandoServicioId, setEditandoServicioId] = useState(null);
-  const [orden, setOrden] = useState('fecha');
+  const [orden, setOrden] = useState('hora');
   const [ordenAscendente, setOrdenAscendente] = useState(true);
   const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
   const [serviciosPorFecha, setServiciosPorFecha] = useState({});   
@@ -58,39 +57,26 @@ const Servicios = () => {
 
   const ordenarServicios = (lista, criterio, asc = true) => {
     if (!lista) return [];
-    const sorted = [...lista].sort((a, b) => {
-      let resultado = 0;
+    const sign = asc ? 1 : -1;
 
+    return [...lista].sort((a, b) => {
       if (criterio === 'hora') {
         const toMin = (s) => {
-          if (!s || !s.includes(':')) return Number.POSITIVE_INFINITY; // nulos al final en asc
+          if (!s || !/^\d{1,2}:\d{2}$/.test(s)) return Number.POSITIVE_INFINITY;
           const [h, m] = s.split(':').map(Number);
           return (isNaN(h) || isNaN(m)) ? Number.POSITIVE_INFINITY : h * 60 + m;
         };
-        resultado = toMin(a.departureTime) - toMin(b.departureTime);
-      } else if (criterio === 'tipoBus') {
-        resultado = (a.busTypeDescription || '').localeCompare(b.busTypeDescription || '');
-      } else {
-        resultado = 0; // 'fecha' (por defecto) no cambia el orden
+        return sign * (toMin(a.departureTime) - toMin(b.departureTime));
       }
 
-      return asc ? resultado : -resultado;
-    });
-    return sorted;
-  };
+      if (criterio === 'tipoBus') {
+        const diff = (a.busTypeDescription || '').localeCompare(b.busTypeDescription || '');
+        return sign * diff;
+      }
 
-  const todosLosServiciosFiltrados = useMemo(() => {
-    return ordenarServicios(
-      todosLosServicios.filter((s) => {
-        const coincideOrigen = !origenSeleccionado || s.origin === origenSeleccionado;
-        const coincideDestino = !destinoSeleccionado || s.destination === destinoSeleccionado;
-        const texto = `${s.origin} ${s.destination} ${s._id}`.toLowerCase();
-        return coincideOrigen && coincideDestino && texto.includes(busqueda.toLowerCase());
-      }),
-      orden,
-      ordenAscendente
-    );
-  }, [todosLosServicios, busqueda, origenSeleccionado, destinoSeleccionado, orden, ordenAscendente]);
+      return 0; // 'fecha' no reordena
+    });
+  };
 
   const handleChangeOrden = (nuevoOrden) => {
     setOrden(nuevoOrden);    
@@ -658,6 +644,7 @@ const Servicios = () => {
                 } else {
                   setServiciosFiltrados([]);
                 }
+                setFechaSeleccionada(fecha);
               }}
               className="mb-3"
             >
