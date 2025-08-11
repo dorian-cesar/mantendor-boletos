@@ -43,17 +43,26 @@ const Layout = () => {
       0
     );
   };
+
   const normalizarSeatMap = (rawMap) => {
     if (!Array.isArray(rawMap)) return [];
-
     return rawMap.map(row =>
       row.map(cell => {
+        // Ya viene como objeto válido
         if (typeof cell === 'object' && cell !== null) return cell;
+
+        // Strings desde la DB
         if (typeof cell === 'string') {
-          if (cell.trim() === '') return { type: 'pasillo', label: '' };
+          const s = cell.trim();
+          if (s === '')  return { type: 'pasillo', label: '' };
+          if (s === 'WC') return { type: 'baño', label: 'WC' };
+          if (s === '#')  return { type: 'vacio', label: '' }; // o muestra '#' si quieres
+          // Cualquier otro string se asume asiento
           return { type: 'asiento', label: cell };
         }
-        return { type: 'pasillo', label: '' }; // fallback
+
+        // Fallback seguro
+        return { type: 'pasillo', label: '' };
       })
     );
   };
@@ -225,17 +234,23 @@ const Layout = () => {
       parseInt(formLayout.columns_piso_1 || 0) +
       (pisosNum === 2 ? parseInt(formLayout.columns_piso_2 || 0) : 0);
 
+    const mapCellToString = (cell) => {
+      if (!cell || typeof cell !== 'object') return '';
+      switch (cell.type) {
+        case 'asiento': return cell.label || '';
+        case 'baño':    return 'WC';
+        case 'vacio':   return '#';      
+        default:        return '';       // pasillo y otros
+      }
+    };
+
     const payload = {
       ...formLayout,
       floor1: {
-        seatMap: seatMap.floor1.seatMap.map(row =>
-          row.map(cell => (cell.type === 'asiento' ? cell.label : ''))
-        )
+        seatMap: seatMap.floor1.seatMap.map(row => row.map(mapCellToString))
       },
       floor2: {
-        seatMap: seatMap.floor2.seatMap.map(row =>
-          row.map(cell => (cell.type === 'asiento' ? cell.label : ''))
-        )
+        seatMap: seatMap.floor2.seatMap.map(row => row.map(mapCellToString))
       },
       pisos: parseInt(formLayout.pisos),
       rows_piso_1: parseInt(formLayout.rows_piso_1),
