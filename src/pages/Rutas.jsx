@@ -10,17 +10,32 @@ import Swal from 'sweetalert2';
 const Rutas = () => {
   const [rutas, setRutas] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [modalEditarVisible, setModalEditarVisible] = useState(false);
-  const [rutaEditando, setRutaEditando] = useState(null);
-  // Mantengo origin/destination SOLO para compatibilidad con RutaEditor, pero el guardado usa "stops".
+
+  // Modal crear/editar ruta (solo para crear ahora; el botón de fila abre bloques)
+  const [modalRutaVisible, setModalRutaVisible] = useState(false);
+  const [rutaEditando, setRutaEditando] = useState(null); // se usa solo para PUT si reactivas edición
   const [formRuta, setFormRuta] = useState({ name: '', origin: '', destination: '', stops: [] });
+
+  // Catálogo de ciudades
   const [ciudades, setCiudades] = useState([]);
-  const [bloquesPorRuta, setBloquesPorRuta] = useState({});
+
+  // Expandir paradas en la tabla
   const [rutasExpandida, setRutasExpandida] = useState(null);
-  const [modalEditarBloqueVisible, setModalEditarBloqueVisible] = useState(false);
-  const [bloqueEditando, setBloqueEditando] = useState(null);
-  const [formBloque, setFormBloque] = useState({ name: '', segments: [] });
+
+  // Modal de BLOQUES por route master
+  const [modalBlocksVisible, setModalBlocksVisible] = useState(false);
+  const [routeMasterForBlocks, setRouteMasterForBlocks] = useState(null);
+  const [blocksLoading, setBlocksLoading] = useState(false);
+  const [blocksError, setBlocksError] = useState('');
+  const [blocksData, setBlocksData] = useState(null); // { routeMaster, totalBlocks, blocks: [...] }
+
   const [actualizando, setActualizando] = useState(false);
+
+  // Helpers
+  const parseResponseSafe = async (res) => {
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { _raw: text }; }
+  };
 
   // ---- CATALOGOS ----
   useEffect(() => {
@@ -28,7 +43,7 @@ const Rutas = () => {
       try {
         const res = await fetch('https://boletos.dev-wit.com/api/cities');
         const data = await res.json();
-        setCiudades(data || []);
+        setCiudades(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error al cargar ciudades:', err);
       }
@@ -40,7 +55,7 @@ const Rutas = () => {
   useEffect(() => {
     const fetchRutas = async () => {
       try {
-        const res = await fetch('https://boletos.dev-wit.com/api/route-masters/');
+        const res = await fetch('https://boletos.dev-wit.com/api/route-masters');
         const data = await res.json();
         setRutas(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -52,65 +67,37 @@ const Rutas = () => {
     fetchRutas();
   }, []);
 
-  // ---- BLOQUES POR RUTA MAESTRA ----
-  const fetchBloques = async (rutaId) => {
-    try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/blocks/route/${rutaId}`);
-      const data = await res.json();
-      setBloquesPorRuta((prev) => ({ ...prev, [rutaId]: Array.isArray(data) ? data : [] }));
-    } catch (err) {
-      console.error('Error al obtener bloques:', err);
-    }
-  };
-
   const toggleExpandirRuta = (rutaId) => {
     setRutasExpandida((prev) => (prev === rutaId ? null : rutaId));
   };
 
-  // ---- CRUD RUTA MAESTRA ----
-  const handleEditar = (ruta) => {
-    const paradas = Array.isArray(ruta.stops) ? [...ruta.stops].sort((a, b) => (a.order || 0) - (b.order || 0)) : [];
-    const origin = paradas[0]?.name || '';
-    const destination = paradas[paradas.length - 1]?.name || '';
-    const intermedias = paradas.length > 2 ? paradas.slice(1, -1).map((s, i) => ({ city: s.name, order: i + 1 })) : [];
-
-    setRutaEditando(ruta._id);
-    setFormRuta({
-      name: ruta.name || '',
-      origin,
-      destination,
-      stops: intermedias,
-    });
-    setModalEditarVisible(true);
+  // ---- CREAR (opcionalmente editar) RUTA MAESTRA ----
+  const abrirModalNuevaRuta = () => {
+    setRutaEditando(null);
+    setFormRuta({ name: '', origin: '', destination: '', stops: [] });
+    setModalRutaVisible(true);
   };
 
-  const handleGuardar = async () => {
+  const handleGuardarRuta = async () => {
     const esNuevaRuta = !rutaEditando;
 
-    // Componer la lista completa de paradas: origen + intermedias + destino
     const todasLasParadas = [
       formRuta.origin,
-      ...(formRuta.stops || []).map((s) => s.city),
+      ...(Array.isArray(formRuta.stops) ? formRuta.stops.map((s) => s.city) : []),
       formRuta.destination,
-    ].filter((x) => typeof x === 'string' && x.trim().length > 0);
+    ].filter((x) => typeof x === 'string' && x.trim());
 
     if (todasLasParadas.length < 2) {
       showToast('Datos incompletos', 'Debes seleccionar al menos origen y destino', true);
       return;
     }
 
-    // Normalizar y ordenar
     const stopsConOrden = todasLasParadas.map((name, i) => ({ name, order: i + 1 }));
 
-    const dataAGuardar = {
-      name: formRuta.name,
-      stops: stopsConOrden,
-    };
-
+    const dataAGuardar = { name: formRuta.name, stops: stopsConOrden };
     const endpoint = esNuevaRuta
-      ? 'https://boletos.dev-wit.com/api/route-masters/'
-      : `https://boletos.dev-wit.com/api/route-masters/${rutaEditando}`;
-
+      ? 'https://boletos.dev-wit.com/api/route-masters'
+      : `https://boletos.dev-wit.com/api/route-masters/${encodeURIComponent(rutaEditando)}`;
     const metodo = esNuevaRuta ? 'POST' : 'PUT';
 
     try {
@@ -119,33 +106,60 @@ const Rutas = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataAGuardar),
       });
-      const body = await res.json();
+      const body = await parseResponseSafe(res);
 
       if (!res.ok) {
-        const mensaje = body?.message || 'Error desconocido al guardar la ruta maestra';
-        throw new Error(mensaje);
+        const msg = body?.message || `${res.status} ${res.statusText}`;
+        throw new Error(msg);
       }
 
       const rutaGuardada = body;
-
-      setRutas((prev) => {
-        if (esNuevaRuta) return [...prev, rutaGuardada];
-        return prev.map((t) => (t._id === rutaEditando ? rutaGuardada : t));
-      });
-
-      showToast(
-        esNuevaRuta ? 'Ruta maestra creada' : 'Ruta maestra actualizada',
-        esNuevaRuta
-          ? 'La nueva ruta maestra fue creada exitosamente'
-          : 'Los cambios fueron guardados correctamente'
-      );
-
-      setModalEditarVisible(false);
+      setRutas((prev) => (esNuevaRuta ? [...prev, rutaGuardada] : prev.map((t) => (t._id === rutaEditando ? rutaGuardada : t))));
+      showToast(esNuevaRuta ? 'Ruta maestra creada' : 'Ruta maestra actualizada', esNuevaRuta ? 'Se creó correctamente' : 'Cambios guardados');
+      setModalRutaVisible(false);
       setRutaEditando(null);
     } catch (err) {
       console.error(err);
       showToast('Error', err.message || 'No se pudo guardar la ruta maestra', true);
     }
+  };
+  
+  const fetchBlocksByRouteMaster = async (id) => {
+    if (!id) {
+      setBlocksError('Falta el ID de la ruta maestra.');
+      return;
+    }
+    setBlocksLoading(true);
+    setBlocksError('');
+    setBlocksData(null);
+
+    const url = `https://boletos.dev-wit.com/api/route-blocks/byRouteMaster/${encodeURIComponent(id)}`;
+
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      const text = await res.text();
+      let body;
+      try { body = JSON.parse(text); } 
+      catch { throw new Error(`Respuesta no JSON del servidor (status ${res.status}): ${text.slice(0,200)}…`); }
+
+      if (!res.ok) {
+        const msg = body?.message || `${res.status} ${res.statusText}`;
+        throw new Error(msg);
+      }
+
+      setBlocksData(body);
+    } catch (e) {
+      console.error('fetchBlocksByRouteMaster error:', e);
+      setBlocksError(e.message || 'No se pudieron obtener los bloques para esta ruta maestra.');
+    } finally {
+      setBlocksLoading(false);
+    }
+  };
+
+  const handleVerBlocks = (ruta) => {
+    setRouteMasterForBlocks(ruta);
+    setModalBlocksVisible(true);
+    fetchBlocksByRouteMaster(ruta._id);
   };
 
   const handleEliminar = async (id) => {
@@ -162,7 +176,7 @@ const Rutas = () => {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/route-masters/${id}`, { method: 'DELETE' });
+      const res = await fetch(`https://boletos.dev-wit.com/api/route-masters/${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Error al eliminar');
 
       setRutas((prev) => prev.filter((t) => t._id !== id));
@@ -170,67 +184,6 @@ const Rutas = () => {
     } catch (err) {
       console.error(err);
       await Swal.fire('Error', 'No se pudo eliminar la ruta maestra', 'error');
-    }
-  };
-
-  // ---- CRUD BLOQUES (sin cambios, pero vinculados a routeMaster) ----
-  const handleGuardarBloque = async () => {
-    const isEditando = Boolean(bloqueEditando);
-
-    const segmentsLimpios = (formBloque.segments || []).map((seg, index) => ({
-      from: seg.from,
-      to: seg.to,
-      ...(isEditando ? { _id: seg._id, order: index + 1 } : {}),
-    }));
-
-    const data = {
-      name: formBloque.name,
-      segments: segmentsLimpios,
-      ...(isEditando ? {} : { routeMaster: rutasExpandida }),
-    };
-
-    const endpoint = isEditando
-      ? `https://boletos.dev-wit.com/api/blocks/${bloqueEditando}`
-      : `https://boletos.dev-wit.com/api/blocks`;
-
-    const method = isEditando ? 'PUT' : 'POST';
-
-    try {
-      const res = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      const responseBody = await res.json();
-      if (!res.ok) {
-        const errorMessage = responseBody?.message || 'Error desconocido al guardar el bloque';
-        throw new Error(errorMessage);
-      }
-
-      const bloqueGuardado = responseBody;
-
-      setBloquesPorRuta((prev) => {
-        const bloquesActuales = prev[rutasExpandida] || [];
-        if (isEditando) {
-          const nuevosBloques = bloquesActuales.map((bloque) =>
-            bloque._id === bloqueEditando ? bloqueGuardado : bloque
-          );
-          return { ...prev, [rutasExpandida]: nuevosBloques };
-        }
-        return { ...prev, [rutasExpandida]: [...bloquesActuales, bloqueGuardado] };
-      });
-
-      showToast(
-        isEditando ? 'Bloque actualizado' : 'Bloque creado',
-        isEditando ? 'Los cambios fueron guardados correctamente' : 'El nuevo bloque fue creado exitosamente'
-      );
-
-      setModalEditarBloqueVisible(false);
-      setBloqueEditando(null);
-    } catch (err) {
-      console.error(err);
-      showToast('Error', err.message || 'No se pudo guardar el bloque', true);
     }
   };
 
@@ -253,23 +206,9 @@ const Rutas = () => {
                 onClick={async () => {
                   setActualizando(true);
                   try {
-                    const res = await fetch('https://boletos.dev-wit.com/api/route-masters/');
+                    const res = await fetch('https://boletos.dev-wit.com/api/route-masters');
                     const data = await res.json();
-
-                    setRutas((prevRutas) => {
-                      const nuevas = [];
-                      const mapaPrev = new Map(prevRutas.map((r) => [r._id, r]));
-                      (Array.isArray(data) ? data : []).forEach((rm) => {
-                        const old = mapaPrev.get(rm._id);
-                        const same =
-                          !!old &&
-                          old.name === rm.name &&
-                          JSON.stringify(old.stops || []) === JSON.stringify(rm.stops || []);
-                        nuevas.push(same ? old : rm);
-                      });
-                      return nuevas;
-                    });
-
+                    setRutas(Array.isArray(data) ? data : []);
                     showToast('Actualizado', 'Lista de rutas maestras sincronizada');
                   } catch (err) {
                     console.error(err);
@@ -288,20 +227,13 @@ const Rutas = () => {
                 )}
               </button>
 
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  setRutaEditando(null);
-                  setFormRuta({ name: '', origin: '', destination: '', stops: [] });
-                  setModalEditarVisible(true);
-                }}
-              >
+              <button className="btn btn-primary btn-sm" onClick={abrirModalNuevaRuta}>
                 <i className="bi bi-plus-lg me-2"></i> Nueva ruta maestra
               </button>
             </div>
           </div>
 
-          <p className="text-muted">Haz click en cada ruta para ver detalle de paradas</p>
+          <p className="text-muted">Haz click en cada ruta para ver detalle de paradas. Usa el botón de capa para ver sus bloques.</p>
 
           {cargando ? (
             <div className="text-center py-4">
@@ -342,13 +274,14 @@ const Rutas = () => {
                           <td>{destino}</td>
                           <td>
                             <button
-                              className="btn btn-sm btn-warning me-2"
+                              className="btn btn-sm btn-info me-2"
+                              title="Ver bloques de esta ruta"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEditar(ruta);
+                                handleVerBlocks(ruta);
                               }}
                             >
-                              <i className="bi bi-pencil-square"></i>
+                              <i className="bi bi-layers"></i>
                             </button>
                             <button
                               className="btn btn-sm btn-danger"
@@ -401,20 +334,20 @@ const Rutas = () => {
         </div>
       </main>
 
-      {/* MODAL RUTA MAESTRA */}
+      {/* MODAL RUTA (solo crear por ahora) */}
       <ModalBase
-        visible={modalEditarVisible}
+        visible={modalRutaVisible}
         title={rutaEditando ? 'Editar Ruta Maestra' : 'Nueva Ruta Maestra'}
         onClose={() => {
-          setModalEditarVisible(false);
+          setModalRutaVisible(false);
           setRutaEditando(null);
         }}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalEditarVisible(false)}>
+            <button className="btn btn-secondary" onClick={() => setModalRutaVisible(false)}>
               Cancelar
             </button>
-            <button className="btn btn-primary" onClick={handleGuardar}>
+            <button className="btn btn-primary" onClick={handleGuardarRuta}>
               Guardar Cambios
             </button>
           </>
@@ -423,122 +356,75 @@ const Rutas = () => {
         <RutaEditor formRuta={formRuta} setFormRuta={setFormRuta} ciudades={ciudades} />
       </ModalBase>
 
-      {/* MODAL BLOQUE */}
+      {/* MODAL: BLOQUES POR ROUTE MASTER */}
       <ModalBase
-        visible={modalEditarBloqueVisible}
-        title="Editar Bloque"
+        visible={modalBlocksVisible}
+        title={`Bloques — ${routeMasterForBlocks?.name || ''}`}
         onClose={() => {
-          setModalEditarBloqueVisible(false);
-          setBloqueEditando(null);
+          setModalBlocksVisible(false);
+          setBlocksData(null);
+          setBlocksError('');
+          setRouteMasterForBlocks(null);
         }}
-        footer={
-          <>
-            <button className="btn btn-secondary" onClick={() => setModalEditarBloqueVisible(false)}>
-              Cancelar
-            </button>
-            <button className="btn btn-primary" onClick={handleGuardarBloque}>
-              Guardar Cambios
-            </button>
-          </>
-        }
+        footer={<button className="btn btn-secondary" onClick={() => setModalBlocksVisible(false)}>Cerrar</button>}
       >
-        <div className="mb-3">
-          <label className="form-label fw-bold">Nombre del bloque</label>
-          <input
-            type="text"
-            className="form-control"
-            value={formBloque.name}
-            onChange={(e) => setFormBloque({ ...formBloque, name: e.target.value })}
-            placeholder="Ej: Bloque Norte-Sur"
-          />
-        </div>
-
-        <div>
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <label className="form-label fw-bold">Segmentos del bloque</label>
-            <button
-              className="btn btn-sm btn-success"
-              onClick={() =>
-                setFormBloque({
-                  ...formBloque,
-                  segments: [
-                    ...formBloque.segments,
-                    { from: '', to: '', order: formBloque.segments.length + 1 },
-                  ],
-                })
-              }
-            >
-              <i className="bi bi-plus-circle me-1"></i> Añadir segmento
-            </button>
+        {blocksLoading && (
+          <div className="text-center py-3">
+            <Spinner animation="border" />
+            <div className="mt-2">Cargando bloques...</div>
           </div>
+        )}
 
-          {formBloque.segments.length === 0 && (
-            <p className="text-muted fst-italic">No hay segmentos agregados.</p>
-          )}
+        {!blocksLoading && blocksError && (
+          <div className="alert alert-danger" role="alert">
+            {blocksError}
+          </div>
+        )}
 
-          {formBloque.segments.map((segment, index) => (
-            <div key={segment._id || index} className="border rounded p-3 mb-2 bg-light-subtle position-relative">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <span className="badge bg-primary">Segmento #{index + 1}</span>
-              </div>
-
-              <div className="d-flex gap-2 align-items-end">
-                <div className="flex-fill">
-                  <label className="form-label">Desde</label>
-                  <select
-                    className="form-select"
-                    value={segment.from}
-                    onChange={(e) => {
-                      const segs = [...formBloque.segments];
-                      segs[index].from = e.target.value;
-                      setFormBloque({ ...formBloque, segments: segs });
-                    }}
-                  >
-                    <option value="">Seleccionar ciudad</option>
-                    {ciudades.map((ciudad) => (
-                      <option key={ciudad._id} value={ciudad.name}>
-                        {ciudad.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex-fill">
-                  <label className="form-label">Hasta</label>
-                  <select
-                    className="form-select"
-                    value={segment.to}
-                    onChange={(e) => {
-                      const segs = [...formBloque.segments];
-                      segs[index].to = e.target.value;
-                      setFormBloque({ ...formBloque, segments: segs });
-                    }}
-                  >
-                    <option value="">Seleccionar ciudad</option>
-                    {ciudades.map((ciudad) => (
-                      <option key={ciudad._id} value={ciudad.name}>
-                        {ciudad.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <button
-                    className="btn btn-sm btn-outline-danger"
-                    title="Eliminar segmento"
-                    onClick={() => {
-                      const segs = formBloque.segments.filter((_, i) => i !== index);
-                      setFormBloque({ ...formBloque, segments: segs });
-                    }}
-                  >
-                    <i className="bi bi-trash"></i>
-                  </button>
-                </div>
-              </div>
+        {!blocksLoading && !blocksError && blocksData && (
+          <div>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <div className="fw-semibold">Ruta Maestra: {blocksData.routeMaster}</div>
+              <span className="badge bg-secondary">Total: {blocksData.totalBlocks}</span>
             </div>
-          ))}
-        </div>
+
+            {Array.isArray(blocksData.blocks) && blocksData.blocks.length > 0 ? (
+              blocksData.blocks.map((bloque) => (
+                <div key={bloque._id} className="mb-3 p-2 border rounded bg-light">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <strong>{bloque.name}</strong>
+                    <span className="text-muted small">ID: {bloque._id}</span>
+                  </div>
+
+                  <div className="table-responsive">
+                    <table className="table table-sm table-striped mb-0">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Parada</th>
+                          <th className="text-muted">ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...(bloque.stops || [])]
+                          .sort((a, b) => (a.order || 0) - (b.order || 0))
+                          .map((s) => (
+                            <tr key={s._id || `${s.name}-${s.order}`}>
+                              <td>{s.order}</td>
+                              <td>{s.name}</td>
+                              <td className="text-muted small">{s._id}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-muted">No hay bloques para esta ruta.</p>
+            )}
+          </div>
+        )}
       </ModalBase>
     </div>
   );
