@@ -509,12 +509,12 @@ const Layout = () => {
                       <strong>{capacidadCalculada} asientos</strong>
                     </li>
                     <li className="list-group-item d-flex justify-content-between">
-                      <span>Tipo asiento 1:</span>
+                      <span>Tipo asiento piso 1:</span>
                       <strong>{formLayout.tipo_Asiento_piso_1 || 'No definido'}</strong>
                     </li>
                     {formLayout.pisos === '2' && (
                       <li className="list-group-item d-flex justify-content-between">
-                        <span>Tipo asiento 2:</span>
+                        <span>Tipo asiento piso 2:</span>
                         <strong>{formLayout.tipo_Asiento_piso_2 || 'No definido'}</strong>
                       </li>
                     )}
@@ -638,8 +638,8 @@ const Layout = () => {
                     <th>Nombre</th>                   
                     <th>Pisos</th>
                     <th>Capacidad</th>
-                    <th>Tipo asiento 1</th>
-                    <th>Tipo asiento 2</th>
+                    <th>Tipo asiento piso 1</th>
+                    <th>Tipo asiento piso 2</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
