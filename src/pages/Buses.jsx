@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
@@ -22,6 +22,9 @@ const Buses = () => {
     disponible: true,
   });
   const [guardando, setGuardando] = useState(false);
+  const [availableLayouts, setAvailableLayouts] = useState([]);
+  const [layoutsLoading, setLayoutsLoading] = useState(false);
+  const [layoutsError, setLayoutsError] = useState('');
 
   useEffect(() => {
     const fetchBuses = async () => {
@@ -38,6 +41,34 @@ const Buses = () => {
 
     fetchBuses();
   }, []);
+
+  useEffect(() => {
+    const fetchLayouts = async () => {
+      setLayoutsLoading(true);
+      setLayoutsError('');
+      try {
+        const res = await fetch('https://boletos.dev-wit.com/api/layouts/');
+        const text = await res.text();
+        let body;
+        try { body = JSON.parse(text); } catch { body = []; }
+        const list = Array.isArray(body) ? body.filter(l => l && l._id) : [];
+        setAvailableLayouts(list);
+      } catch (e) {
+        setLayoutsError(e.message || 'No se pudieron cargar los layouts');
+      } finally {
+        setLayoutsLoading(false);
+      }
+    };
+
+    fetchLayouts();
+  }, []);
+
+  const layoutsMap = useMemo(
+    () => Object.fromEntries((availableLayouts || []).map(l => [l._id, l])),
+    [availableLayouts]
+  );
+
+  const layoutLabel = (l) =>`${l.name} • ${l.pisos ?? '-'} pisos • ${l.capacidad ?? '-'} pax • ${l.columns ?? '-'}×${l.rows ?? '-'}`;
 
   const formatearFecha = (fechaISO) => {
     const fecha = new Date(fechaISO);
@@ -110,8 +141,12 @@ const Buses = () => {
                           antiguo.anio !== nuevo.anio ||
                           antiguo.revision_tecnica !== nuevo.revision_tecnica ||
                           antiguo.permiso_circulacion !== nuevo.permiso_circulacion ||
-                          antiguo.disponible !== nuevo.disponible;
-
+                          antiguo.disponible !== nuevo.disponible ||
+                          (
+                            ((typeof antiguo.layout === 'object' ? antiguo.layout?._id : antiguo.layout) || null)
+                            !==
+                            ((typeof nuevo.layout === 'object' ? nuevo.layout?._id : nuevo.layout) || null)
+                        );
                         nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
                       });
 
@@ -148,6 +183,7 @@ const Buses = () => {
                     revision_tecnica: '',
                     permiso_circulacion: '',
                     disponible: true,
+                    layout: '',
                   });
                   setModalVisible(true);
                 }}
@@ -173,6 +209,7 @@ const Buses = () => {
                     <th>Año</th>
                     <th>Revisión Técnica</th>
                     <th>Permiso Circulación</th>
+                    <th>Layout</th>
                     <th>Disponible</th>
                     <th>Acciones</th>
                   </tr>
@@ -186,6 +223,15 @@ const Buses = () => {
                       <td>{bus.anio}</td>
                       <td>{formatearFecha(bus.revision_tecnica)}</td>
                       <td>{formatearFecha(bus.permiso_circulacion)}</td>
+                      <td>
+                        {layoutsLoading ? (
+                          <Spinner animation="border" size="sm" />
+                        ) : (
+                          (typeof bus.layout === 'object' && bus.layout && bus.layout.name)
+                            || (layoutsMap[bus.layout]?.name)
+                            || (typeof bus.layout === 'string' && bus.layout ? `${bus.layout.slice(0, 8)}…` : '—')
+                        )}
+                      </td>
                       <td>
                         {bus.disponible ? (
                           <span className="badge bg-success">Sí</span>
@@ -245,6 +291,9 @@ const Buses = () => {
               revision_tecnica: '',
               permiso_circulacion: '',
               disponible: true,
+              layout: typeof bus.layout === 'object' && bus.layout
+                ? bus.layout._id
+                : (typeof bus.layout === 'string' ? bus.layout : ''),
             });
           }}
           footer={
@@ -343,6 +392,34 @@ const Buses = () => {
                 value={formBus.anio}
                 onChange={(e) => setFormBus({ ...formBus, anio: Number(e.target.value) })}
               />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Layout (opcional)</label>
+              {layoutsError && (
+                <div className="alert alert-warning py-1 px-2 mb-2">{layoutsError}</div>
+              )}
+              <select
+                className="form-select"
+                value={formBus.layout || ''}
+                onChange={(e) => setFormBus({ ...formBus, layout: e.target.value })}
+                disabled={layoutsLoading}
+              >
+                <option value="">Sin layout</option>
+                {availableLayouts.map(l => (
+                  <option key={l._id} value={l._id}>{layoutLabel(l)}</option>
+                ))}
+              </select>
+
+              {!!formBus.layout && layoutsMap[formBus.layout] && (
+                <div className="mt-2 small text-muted">
+                  <div><strong>{layoutsMap[formBus.layout].name}</strong></div>
+                  <div>Pisos: {layoutsMap[formBus.layout].pisos ?? '-'}</div>
+                  <div>Capacidad: {layoutsMap[formBus.layout].capacidad ?? '-'}</div>
+                  <div>Disposición: {layoutsMap[formBus.layout].columns ?? '-'} columnas × {layoutsMap[formBus.layout].rows ?? '-'} filas</div>
+                  <div>Asientos P1: {layoutsMap[formBus.layout].tipo_Asiento_piso_1 ?? '-'}</div>
+                  <div>Asientos P2: {layoutsMap[formBus.layout].tipo_Asiento_piso_2 ?? '-'}</div>
+                </div>
+              )}
             </div>
             <div className="col-md-6">
               <label className="form-label">Revisión Técnica</label>
