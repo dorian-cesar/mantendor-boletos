@@ -582,6 +582,7 @@ const Rutas = () => {
                   {rutasFiltradas.map((ruta) => {
                     const origen = ruta?.stops?.[0]?.name || '';
                     const destino = ruta?.stops?.[ruta.stops.length - 1]?.name || '';
+                    const paradasPendientes = !Array.isArray(ruta?.stops);
                     const totalParadas = ruta?.stops?.length || 0;
                     const totalBloques = blocksCountMap[ruta._id];
 
@@ -602,20 +603,31 @@ const Rutas = () => {
 
                           <td className="fw-semibold">{ruta.name}</td>
                           <td>{origen}</td>
-                          <td>{destino}</td>
-
-                          {/* Nueva celda: total de bloques */}
+                          <td>{destino}</td>                          
                           <td>
                             {totalBloques == null ? (
                               <Spinner animation="border" size="sm" />
                             ) : (
-                              <span className="badge bg-info-subtle text-info-emphasis border">{totalBloques}</span>
+                              <span
+                                className="badge bg-info-subtle text-info-emphasis border"
+                                style={{ '--bs-badge-font-size': '0.95rem' }}
+                              >
+                                {totalBloques}
+                              </span>
                             )}
                           </td>
 
-                          {/* Paradas */}
                           <td>
-                            <span className="badge bg-light text-secondary border">{totalParadas}</span>
+                            {totalParadas == null ? (
+                              <Spinner animation="border" size="sm" />
+                            ) : (
+                              <span
+                                className="badge bg-info-subtle text-info-emphasis border"
+                                style={{ '--bs-badge-font-size': '0.95rem' }}
+                              >
+                                {totalParadas}
+                              </span>
+                            )}
                           </td>
 
                           {/* Acciones */}
