@@ -373,8 +373,8 @@ const Rutas = () => {
     const payload = {
       routeMasterId,
       name: blockForm.name.trim(),
-      stops,                      // [{ name, order }]
-      layoutId: blockLayoutId.trim(),  // <- _id del layout seleccionado
+      stops,                      
+      layoutId: blockLayoutId.trim(),  
     };
 
     try {
@@ -448,52 +448,66 @@ const Rutas = () => {
         </div>
 
         <div className="stats-box">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">          
-            <h5 className="mb-0">Listado de Rutas Maestras</h5>
-            <div className="d-flex gap-2 w-100 w-md-auto">
-              <div className="input-group">
-                <span className="input-group-text"><i className="bi bi-search" /></span>
-                <input
-                  className="form-control"
-                  placeholder="Buscar por nombre, origen, destino o parada…"
-                  value={filtro}
-                  onChange={(e) => setFiltro(e.target.value)}
-                />
-                {filtro && (
-                  <button className="btn btn-outline-secondary" onClick={() => setFiltro('')}>
-                    Limpiar
-                  </button>
-                )}
+          <div className="d-flex flex-column gap-2 mb-3">
+            {/* Fila 1: título + acciones */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <h5 className="mb-0">Listado de Rutas Maestras</h5>                
               </div>
 
-              <button
-                className="btn btn-outline-secondary"
-                disabled={actualizando}
-                onClick={async () => {
-                  setActualizando(true);
-                  try {
-                    const res = await fetch('https://boletos.dev-wit.com/api/route-masters');
-                    const data = await res.json();
-                    setRutas(Array.isArray(data) ? data : []);
-                    showToast('Actualizado', 'Lista de rutas maestras sincronizada');
-                  } catch (err) {
-                    console.error(err);
-                    showToast('Error al actualizar', err.message || 'No se pudo sincronizar', true);
-                  } finally {
-                    setActualizando(false);
-                  }
-                }}
-                title="Volver a cargar la lista"
-                aria-label="Actualizar lista de rutas"
-              >
-                {actualizando ? <Spinner animation="border" size="sm" /> : <><i className="bi bi-arrow-repeat" /> Actualizar</>}
-              </button>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-outline-secondary"
+                  disabled={actualizando}
+                  onClick={async () => {
+                    setActualizando(true);
+                    try {
+                      const res = await fetch('https://boletos.dev-wit.com/api/route-masters');
+                      const data = await res.json();
+                      setRutas(Array.isArray(data) ? data : []);
+                      showToast('Actualizado', 'Lista de rutas maestras sincronizada');
+                    } catch (err) {
+                      console.error(err);
+                      showToast('Error al actualizar', err.message || 'No se pudo sincronizar', true);
+                    } finally {
+                      setActualizando(false);
+                    }
+                  }}
+                  title="Volver a cargar la lista"
+                  aria-label="Actualizar lista de rutas"
+                >
+                  {actualizando ? (
+                    <Spinner animation="border" size="sm" />
+                  ) : (
+                    <>
+                      <i className="bi bi-arrow-repeat" /> Actualizar
+                    </>
+                  )}
+                </button>
 
-              <button className="btn btn-primary" onClick={abrirModalNuevaRuta}>
-                <i className="bi bi-plus-lg me-1" /> Nueva ruta
-              </button>
+                <button className="btn btn-primary" onClick={abrirModalNuevaRuta}>
+                  <i className="bi bi-plus-lg me-1" /> Nueva ruta
+                </button>
+              </div>
             </div>
-          </div>          
+
+            {/* Fila 2: buscador */}
+            <div className="input-group w-100">
+              <span className="input-group-text"><i className="bi bi-search" /></span>
+              <input
+                className="form-control"
+                placeholder="Buscar por nombre, origen, destino o parada…"
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                aria-label="Buscar rutas maestras"
+              />
+              {filtro && (
+                <button className="btn btn-outline-secondary" onClick={() => setFiltro('')}>
+                  Limpiar
+                </button>
+              )}
+            </div>
+          </div>        
 
           {cargando ? (
             <div className="text-center py-4">
