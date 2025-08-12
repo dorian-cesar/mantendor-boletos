@@ -536,7 +536,7 @@ const Rutas = () => {
                                     <tr>
                                       <th>#</th>
                                       <th>Nombre de la parada</th>
-                                      <th className="text-muted">ID</th>
+                                      {/* <th className="text-muted">ID</th> */}
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -546,7 +546,7 @@ const Rutas = () => {
                                         <tr key={stop._id || `${stop.name}-${stop.order}`}>
                                           <td>{stop.order}</td>
                                           <td>{stop.name}</td>
-                                          <td className="text-muted small">{stop._id}</td>
+                                          {/* <td className="text-muted small">{stop._id}</td> */}
                                         </tr>
                                       ))}
                                   </tbody>
@@ -596,9 +596,9 @@ const Rutas = () => {
           setBlocksData(null);
           setBlocksError('');
           setRouteMasterForBlocks(null);
-          setBlockMode?.('view');
-          setEditingBlockId?.(null);
-          setBlockForm?.({ name: '', stops: [] });
+          setBlockMode('view');
+          setEditingBlockId(null);
+          setBlockForm({ name: '', stops: [] });
           setBlockLayoutId('');
         }}
         footer={
@@ -606,9 +606,10 @@ const Rutas = () => {
             className="btn btn-secondary"
             onClick={() => {
               setModalBlocksVisible(false);
-              setBlockMode?.('view');
-              setEditingBlockId?.(null);
-              setBlockForm?.({ name: '', stops: [] });
+              setBlockMode('view');
+              setEditingBlockId(null);
+              setBlockForm({ name: '', stops: [] });
+              setBlockLayoutId('');
             }}
           >
             Cerrar
@@ -647,12 +648,13 @@ const Rutas = () => {
               </div>
             </div>
 
-              {/* Formulario crear/editar bloque */}
-              {blockMode !== 'view' && (
+            {/* Formulario crear/editar bloque */}
+            {blockMode !== 'view' && (
               <div className="mb-3 p-3 border rounded bg-light-subtle">
-                <div className="row g-2 align-items-end">
+                {/* Fila estable: nombre + layout (solo el select aquí) */}
+                <div className="row g-3 align-items-start">
                   <div className="col-12 col-md-6">
-                    <label className="form-label fw-semibold">Nombre del bloque</label>
+                    <label className="form-label fw-semibold mb-1">Nombre del bloque</label>
                     <input
                       className="form-control"
                       value={blockForm.name}
@@ -660,8 +662,9 @@ const Rutas = () => {
                       placeholder="Ej: Tramo Norte"
                     />
                   </div>
+
                   <div className="col-12 col-md-6">
-                    <label className="form-label fw-semibold">Layout (requerido)</label>
+                    <label className="form-label fw-semibold mb-1">Layout (requerido)</label>
 
                     {layoutsLoading && <div className="form-text">Cargando layouts…</div>}
                     {!layoutsLoading && layoutsError && (
@@ -669,35 +672,38 @@ const Rutas = () => {
                     )}
 
                     {!layoutsLoading && !layoutsError && (
-                      <>
-                        <select
-                          className="form-select"
-                          value={blockLayoutId}
-                          onChange={(e) => setBlockLayoutId(e.target.value)}
-                        >
-                          <option value="" disabled>Seleccione un layout</option>
-                          {availableLayouts.map(l => (
-                            <option key={l._id} value={l._id}>
-                              {layoutLabel(l)}
-                            </option>
-                          ))}
-                        </select>
-
-                        {selectedLayout && (
-                          <div className="mt-2 small text-muted">
-                            <div><strong>{selectedLayout.name}</strong></div>
-                            <div>Pisos: {selectedLayout.pisos ?? '-'}</div>
-                            <div>Capacidad: {selectedLayout.capacidad ?? '-'}</div>
-                            <div>Disposición: {selectedLayout.columns ?? '-'} columnas × {selectedLayout.rows ?? '-'} filas</div>
-                            <div>Asientos P1: {selectedLayout.tipo_Asiento_piso_1 ?? '-'}</div>
-                            <div>Asientos P2: {selectedLayout.tipo_Asiento_piso_2 ?? '-'}</div>
-                          </div>
-                        )}
-                      </>
+                      <select
+                        className="form-select"
+                        value={blockLayoutId}
+                        onChange={(e) => setBlockLayoutId(e.target.value)}
+                      >
+                        <option value="" disabled>Seleccione un layout</option>
+                        {availableLayouts.map(l => (
+                          <option key={l._id} value={l._id}>
+                            {layoutLabel(l)}
+                          </option>
+                        ))}
+                      </select>
                     )}
-                  </div>                  
+                  </div>
+
+                  {/* Detalles del layout: fila aparte de ancho completo (no desordena la fila superior) */}
+                  {selectedLayout && (
+                    <div className="col-12">
+                      <div className="alert alert-secondary py-2 mb-0">
+                        <div className="small">
+                          <strong>{selectedLayout.name}</strong><br />
+                          Pisos: {selectedLayout.pisos ?? '-'} · Capacidad: {selectedLayout.capacidad ?? '-'} ·{' '}
+                          Disposición: {selectedLayout.columns ?? '-'} columnas × {selectedLayout.rows ?? '-'} filas<br />
+                          Asientos P1: {selectedLayout.tipo_Asiento_piso_1 ?? '-'} ·{' '}
+                          Asientos P2: {selectedLayout.tipo_Asiento_piso_2 ?? '-'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
+                {/* Paradas con drag & drop */}
                 <div className="mt-3">
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <label className="form-label fw-semibold mb-0">
@@ -708,7 +714,6 @@ const Rutas = () => {
                     </button>
                   </div>
 
-                  {/* Drag & Drop de paradas */}
                   <ReactSortable
                     list={blockForm.stops || []}
                     setList={(newOrder) =>
@@ -771,7 +776,7 @@ const Rutas = () => {
                     <p className="text-muted fst-italic mt-2">Aún no hay paradas. Agrega al menos una.</p>
                   )}
 
-                  {/* Barra de acciones abajo */}
+                  {/* Barra de acciones abajo (sticky) */}
                   <div
                     className="d-flex justify-content-between align-items-center pt-3 mt-3 border-top"
                     style={{
