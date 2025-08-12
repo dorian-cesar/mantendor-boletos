@@ -74,11 +74,13 @@ const Layout = () => {
 
   const handleEditar = async (layout) => {
     try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/layouts/${layout.name}`);
+      if (!layout?._id) throw new Error('Este layout no tiene _id. No se puede cargar.');
+
+      const res = await fetch(`https://boletos.dev-wit.com/api/layouts/${layout._id}`);
+
       if (!res.ok) throw new Error('No se pudo cargar el layout completo');
       const fullLayout = await res.json();
-
-      setLayoutEditando(fullLayout.name);
+      setLayoutEditando(fullLayout._id);
 
       setFormLayout({ 
         name: fullLayout.name, 
@@ -99,17 +101,17 @@ const Layout = () => {
         floor2: { seatMap: normalizarSeatMap(fullLayout.floor2?.seatMap || []) }
       });
 
-      setModoCreacion(false); // No sobrescribir grilla existente
-      setCurrentStep(1);      // Paso inicial del modal
+      setModoCreacion(false);
+      setCurrentStep(1);
       setModalEditarVisible(true);
 
     } catch (error) {
       console.error('Error al cargar layout completo:', error);
-      showToast('Error', 'No se pudo cargar el layout completo', true);
+      showToast('Error', error.message || 'No se pudo cargar el layout completo', true);
     }
   };
 
-  const handleEliminar = async (name) => {
+  const handleEliminar = async (_id) => {
     const result = await Swal.fire({
       title: '¿Estás seguro?',
       text: '¿Estás seguro de eliminar este layout de servicio?',
@@ -125,13 +127,13 @@ const Layout = () => {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`https://boletos.dev-wit.com/api/layouts/${name}`, {
+      const res = await fetch(`https://boletos.dev-wit.com/api/layouts/${_id}`, {
         method: 'DELETE',
       });
       await showToast('Layout eliminado', 'El layout fue eliminado exitosamente.');
 
       if (!res.ok) throw new Error('Error al eliminar');
-      setLayouts((prev) => prev.filter((t) => t.name !== name));
+      setLayouts((prev) => prev.filter((t) => t._id !== _id));
     } catch (err) {
       console.error(err);
       alert('Error al eliminar');
@@ -140,17 +142,35 @@ const Layout = () => {
 
   useEffect(() => {
     const fetchLayouts = async () => {
+      setCargando(true);
       try {
         const res = await fetch('https://boletos.dev-wit.com/api/layouts/');
-        const data = await res.json();
-        setLayouts(data.map(layout => ({
-          ...layout,
-          floor1: layout.floor1,
-          floor2: layout.floor2
-        })));
+        const text = await res.text();
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          throw new Error('Respuesta no JSON al listar layouts.');
+        }
 
+        if (!res.ok) {
+          throw new Error(body?.message || `Error HTTP ${res.status}`);
+        }
+        if (!Array.isArray(body)) {
+          throw new Error('El backend no devolvió un arreglo de layouts.');
+        }
+        
+        setLayouts(
+          body.map(layout => ({
+            ...layout,
+            floor1: layout.floor1,
+            floor2: layout.floor2,
+          }))
+        );
       } catch (error) {
         console.error('Error al cargar layout de servicio:', error);
+        showToast('Error', error.message || 'No se pudo cargar la lista de layouts', true);
+        setLayouts([]);
       } finally {
         setCargando(false);
       }
@@ -264,8 +284,8 @@ const Layout = () => {
 
     try {
       const url = layoutEditando
-        ? `https://boletos.dev-wit.com/api/layouts/${layoutEditando}`
-        : 'https://boletos.dev-wit.com/api/layouts/';
+      ? `https://boletos.dev-wit.com/api/layouts/${layoutEditando}`
+      : 'https://boletos.dev-wit.com/api/layouts/';
       const method = layoutEditando ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -537,9 +557,13 @@ const Layout = () => {
                       const nuevos = [];
 
                       data.forEach((nuevo) => {
-                        const antiguo = prev.find(t => t.name === nuevo.name);
+                        const antiguo =
+                          prev.find(t => t._id === nuevo._id) ||
+                          prev.find(t => !t._id && t.name === nuevo.name); // fallback por name si algún legacy no trae _id
+                        
                         const haCambiado =
                           !antiguo ||
+                          antiguo._id !== nuevo._id ||
                           antiguo.name !== nuevo.name ||
                           antiguo.rows !== nuevo.rows ||
                           antiguo.columns !== nuevo.columns ||
@@ -552,8 +576,9 @@ const Layout = () => {
                       });
 
                       // Eliminar Layouts que ya no están
+                      const ids = data.map(t => t._id);
                       const names = data.map(t => t.name);
-                      return nuevos.filter(t => names.includes(t.name));
+                      return nuevos.filter(t => (t._id ? ids.includes(t._id) : names.includes(t.name)));
                     });
 
                     showToast('Actualizado', 'Se sincronizó la lista de layouts de servicio');
@@ -610,9 +635,7 @@ const Layout = () => {
               <table className="table table-bordered table-hover align-middle">
                 <thead className="table-light">
                   <tr>                    
-                    <th>Nombre</th>
-                    {/* <th>Filas</th>
-                    <th>Columnas</th> */}
+                    <th>Nombre</th>                   
                     <th>Pisos</th>
                     <th>Capacidad</th>
                     <th>Tipo asiento 1</th>
@@ -622,10 +645,8 @@ const Layout = () => {
                 </thead>
                 <tbody>
                   {layouts.map((layout) => (
-                    <tr key={layout.name}>                      
-                      <td>{layout.name}</td>
-                      {/* <td>{layout.rows}</td>
-                      <td>{layout.columns}</td> */}
+                    <tr key={layout._id || layout.name}>                     
+                      <td>{layout.name}</td>                     
                       <td>{layout.pisos}</td>
                       <td>{layout.capacidad}</td>
                       <td>{layout.tipo_Asiento_piso_1}</td>
@@ -634,7 +655,7 @@ const Layout = () => {
                         <button className="btn btn-sm btn-warning me-2" onClick={() => handleEditar(layout)}>
                           <i className="bi bi-pencil-square"></i>
                         </button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(layout.name)}>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleEliminar(layout._id)}>
                           <i className="bi bi-trash"></i>
                         </button>
                       </td>
