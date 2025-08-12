@@ -36,12 +36,11 @@ const Rutas = () => {
   const [layoutsError, setLayoutsError] = useState('');
 
   // Solo paradas definidas en la ruta maestra actual
-  const allowedRMStops = React.useMemo(() => {
+  const allowedRMStops = useMemo(() => {
     const arr = Array.isArray(routeMasterForBlocks?.stops) ? routeMasterForBlocks.stops : [];
     const ordered = arr.slice().sort((a,b) => (a.order || 0) - (b.order || 0));
-    // nombres únicos, preservando orden
     return [...new Set(ordered.map(s => s?.name).filter(Boolean))];
-  }, [routeMasterForBlocks]);
+  }, [routeMasterForBlocks]);  
 
   const fetchLayouts = async () => {
     setLayoutsLoading(true);
@@ -57,9 +56,9 @@ const Rutas = () => {
         throw new Error('No se pudo obtener la lista de layouts');
       }
 
-      // mapeo directo (no viene _id, usamos name como identificador)
-      const list = body.map(l => ({
-        _id: l.name, // usamos name como id lógico
+      const list = body
+      .map(l => ({
+        _id: l._id,          
         name: l.name,
         pisos: l.pisos,
         capacidad: l.capacidad,
@@ -67,7 +66,8 @@ const Rutas = () => {
         rows: l.rows,
         tipo_Asiento_piso_1: l.tipo_Asiento_piso_1,
         tipo_Asiento_piso_2: l.tipo_Asiento_piso_2,
-      }));
+      }))
+      .filter(l => l._id);
 
       setAvailableLayouts(list);
     } catch (e) {
@@ -253,6 +253,14 @@ const Rutas = () => {
   const [blockForm, setBlockForm] = useState({ name: '', stops: [] }); // stops: [{ name, order }]
   const [editingBlockId, setEditingBlockId] = useState(null);
 
+  const canSave = useMemo(() => {
+  const nameOk = !!blockForm?.name?.trim();
+  const stopsArr = (blockForm?.stops || []).filter(s => s?.name?.trim());
+  const stopsOk = stopsArr.length >= 2 && stopsArr.every(s => allowedRMStops.includes(s.name));
+  const layoutOk = /^[a-f0-9]{24}$/i.test(String(blockLayoutId || '').trim());
+    return nameOk && stopsOk && layoutOk;
+  }, [blockForm, blockLayoutId, allowedRMStops]);
+
   // Helpers UI para el formulario de block 
   const addBlockStop = () => {
     if (!allowedRMStops.length) {
@@ -311,6 +319,7 @@ const Rutas = () => {
     setEditingBlockId(null);
     setBlockForm({ name: '', stops: [] });
     setBlockMode('view');
+    setBlockLayoutId('');
   };
 
   // Guardar (create/edit)
@@ -590,7 +599,6 @@ const Rutas = () => {
           setBlockMode?.('view');
           setEditingBlockId?.(null);
           setBlockForm?.({ name: '', stops: [] });
-          setBlockLayoutId(''); // <-- add
           setBlockLayoutId('');
         }}
         footer={
@@ -687,18 +695,7 @@ const Rutas = () => {
                         )}
                       </>
                     )}
-                  </div>
-
-                  <div className="col-12 col-md-6 text-md-end">
-                    <div className="d-flex gap-2 justify-content-md-end mt-2 mt-md-0">
-                      <button className="btn btn-secondary" onClick={cancelBlockForm}>
-                        Cancelar
-                      </button>
-                      <button className="btn btn-primary" onClick={saveBlock}>
-                        {blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios'}
-                      </button>
-                    </div>
-                  </div>
+                  </div>                  
                 </div>
 
                 <div className="mt-3">
@@ -773,6 +770,40 @@ const Rutas = () => {
                   {(blockForm.stops || []).length === 0 && (
                     <p className="text-muted fst-italic mt-2">Aún no hay paradas. Agrega al menos una.</p>
                   )}
+
+                  {/* Barra de acciones abajo */}
+                  <div
+                    className="d-flex justify-content-between align-items-center pt-3 mt-3 border-top"
+                    style={{
+                      position: 'sticky',
+                      bottom: 0,
+                      background: 'var(--bs-body-bg)',
+                      zIndex: 2,
+                    }}
+                  >
+                    <div className="small text-muted">
+                      {(blockForm.stops || []).filter(s => s?.name).length} paradas
+                      {' · '}layout: {selectedLayout?.name || '—'}
+                    </div>
+
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-secondary" onClick={cancelBlockForm}>
+                        Cancelar
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={saveBlock}
+                        disabled={!canSave}
+                        title={
+                          canSave
+                            ? (blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios')
+                            : 'Completa: nombre, layout válido y al menos 2 paradas de la ruta'
+                        }
+                      >
+                        {blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
