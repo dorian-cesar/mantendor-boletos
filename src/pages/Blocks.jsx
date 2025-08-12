@@ -3,6 +3,7 @@ import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
 import { showToast } from '@components/Toast/Toast';
+import ModalBase from '@components/ModalBase/ModalBase';
 
 const parseSafe = async (res) => {
   const txt = await res.text();
@@ -45,6 +46,107 @@ const Blocks = () => {
       return n;
     });
   }, []);
+
+  // --- Generar servicio ---
+  const [modalGenVisible, setModalGenVisible] = useState(false);
+  const [blockForGen, setBlockForGen] = useState(null);
+  const [genForm, setGenForm] = useState({ date: '', time: '' });
+  const [generating, setGenerating] = useState(false);
+  const [genResult, setGenResult] = useState(null);
+
+  // default de fecha: hoy (formato yyyy-mm-dd)
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const openGenerateModal = (b) => {
+    setBlockForGen(b);
+    setGenResult(null);
+    setGenForm({ date: todayStr, time: '08:00' });
+    setModalGenVisible(true);
+  };
+
+  const closeGenerateModal = () => {
+    setModalGenVisible(false);
+    setBlockForGen(null);
+    setGenForm({ date: '', time: '' });
+    setGenResult(null);
+  };
+
+  // Nombre de RM y Layout (usando tus mapas ya existentes)
+  const getRMName = (b) => {
+    const rmId = typeof b.routeMaster === 'object' ? b.routeMaster?._id : b.routeMaster;
+    return (typeof b.routeMaster === 'object' ? b.routeMaster?.name : routeMastersMap[rmId]?.name) || (rmId ? `${rmId.slice(0, 8)}…` : '—');
+  };
+  const getLayoutName = (b) => {
+    const layId = typeof b.layout === 'object' ? b.layout?._id : b.layout;
+    return (typeof b.layout === 'object' ? b.layout?.name : layoutsMap[layId]?.name) || (layId ? `${layId.slice(0, 8)}…` : '—');
+  };
+
+  // Puede guardar solo si tiene fecha (yyyy-mm-dd) y hora (HH:mm)
+  const canGenerate = useMemo(() => {
+    const okDate = /^\d{4}-\d{2}-\d{2}$/.test(genForm.date || '');
+    const okTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(genForm.time || '');
+    return !!blockForGen && okDate && okTime;
+  }, [blockForGen, genForm]);
+
+  const generateService = async () => {
+    if (!canGenerate) return;
+
+    const blockId = blockForGen._id;
+    const layId = typeof blockForGen.layout === 'object'
+      ? blockForGen.layout?._id
+      : blockForGen.layout;
+
+    if (!layId) {
+      showToast('Layout faltante', 'Este bloque no tiene un layout asociado. Edítalo y asigna un layout.', true);
+      return;
+    }
+
+    const isoDate = new Date(`${genForm.date}T00:00:00`).toISOString();
+    const time = genForm.time;
+
+    // Intentos tolerantes con routeBlock / routeBlockId, siempre incluyendo layoutId
+    const payloads = [
+      { routeBlock: blockId,  layoutId: layId, date: isoDate, time, crew: [] },
+      { routeBlockId: blockId, layoutId: layId, date: isoDate, time, crew: [] },
+    ];
+
+    setGenerating(true);
+    setGenResult(null);
+    try {
+      let lastErrBody = null;
+      for (const p of payloads) {
+        try {
+          const res = await fetch('https://boletos.dev-wit.com/api/route-blocks-generated/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(p),
+          });
+          const body = await parseResponseSafe?.(res) || await parseSafe(res);
+          if (res.ok) {
+            setGenResult(body);
+            showToast('Servicio generado', `Bloque "${blockForGen.name}" — ${genForm.date} ${genForm.time}`);
+            return;
+          } else {
+            lastErrBody = body;
+          }
+        } catch {
+          // probar siguiente shape
+        }
+      }
+      throw new Error(lastErrBody?.error || lastErrBody?.message || 'No se pudo generar el servicio');
+    } catch (e) {
+      console.error('[Generate Service] Error', e);
+      showToast('Error', e.message || 'Fallo al generar el servicio', true);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   // Cargar blocks + catálogos
   useEffect(() => {
@@ -225,12 +327,13 @@ const Blocks = () => {
                     <th style={{ width: 110 }}>Paradas</th>
                     <th style={{ width: 170 }}>Creado</th>
                     <th style={{ width: 170 }}>Actualizado</th>
+                    <th style={{ width: 160 }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {blocksFiltrados.length === 0 && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <div className="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
                           <div>
                             <strong>Sin resultados</strong>
@@ -273,25 +376,49 @@ const Blocks = () => {
                               <i className={`bi ${isExpanded(b._id) ? 'bi-chevron-down' : 'bi-chevron-right'}`} />
                             </button>
                           </td>
+
                           <td className="fw-semibold">{b.name || '—'}</td>
+
                           <td title={rmName || rmId || ''}>
-                            {catLoading ? <Spinner animation="border" size="sm" /> : (rmName || (rmId ? `${rmId.slice(0, 8)}…` : '—'))}
+                            {catLoading
+                              ? <Spinner animation="border" size="sm" />
+                              : (rmName || (rmId ? `${rmId.slice(0, 8)}…` : '—'))}
                           </td>
+
                           <td title={layName || layId || ''}>
-                            {catLoading ? <Spinner animation="border" size="sm" /> : (layName || (layId ? `${layId.slice(0, 8)}…` : '—'))}
+                            {catLoading
+                              ? <Spinner animation="border" size="sm" />
+                              : (layName || (layId ? `${layId.slice(0, 8)}…` : '—'))}
                           </td>
+
                           <td>
-                            <span className="badge bg-info-subtle text-info-emphasis border" style={{ '--bs-badge-font-size': '0.95rem' }}>
+                            <span
+                              className="badge bg-info-subtle text-info-emphasis border"
+                              style={{ '--bs-badge-font-size': '0.95rem' }}
+                            >
                               {paradas}
                             </span>
                           </td>
+
                           <td className="text-muted small">{formatDate(b.createdAt)}</td>
                           <td className="text-muted small">{formatDate(b.updatedAt)}</td>
+
+                          {/* ACCIONES */}
+                          <td className="text-nowrap">
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              title="Generar servicio para este bloque"
+                              onClick={() => openGenerateModal(b)}
+                            >
+                              <i className="bi bi-calendar-plus me-1" />
+                              Generar
+                            </button>
+                          </td>
                         </tr>
 
                         {isExpanded(b._id) && (
                           <tr id={`stops-${b._id}`}>
-                            <td colSpan={7}>
+                            <td colSpan={8}>
                               <div className="p-2 border rounded bg-light">
                                 <div className="d-flex align-items-center mb-2">
                                   <i className="bi bi-signpost-2 me-2" />
@@ -331,6 +458,77 @@ const Blocks = () => {
             </div>
           )}
         </div>
+
+        <ModalBase
+          visible={modalGenVisible}
+          title={`Generar servicio — ${blockForGen?.name || ''}`}
+          onClose={closeGenerateModal}
+        >
+          {!blockForGen ? (
+            <div className="text-muted">Selecciona un bloque para continuar.</div>
+          ) : (
+            <div className="p-2">
+              {/* Resumen del bloque */}
+              <div className="mb-3">
+                <div className="small text-muted">Ruta maestra</div>
+                <div className="fw-semibold">{getRMName(blockForGen)}</div>
+                <div className="small text-muted mt-2">Layout</div>
+                <div>{getLayoutName(blockForGen)}</div>
+              </div>
+
+              {/* Formulario */}
+              <div className="row g-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label fw-semibold">Fecha</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={genForm.date}
+                    min={todayStr}
+                    onChange={(e) => setGenForm((f) => ({ ...f, date: e.target.value }))}
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label fw-semibold">Hora</label>
+                  <input
+                    type="time"
+                    className="form-control"
+                    value={genForm.time}
+                    step={300} // saltos de 5 min
+                    onChange={(e) => setGenForm((f) => ({ ...f, time: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="d-flex justify-content-end gap-2 pt-3 mt-3 border-top">
+                <button className="btn btn-secondary" onClick={closeGenerateModal} disabled={generating}>
+                  Cancelar
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={generateService}
+                  disabled={!canGenerate || generating}
+                  title={canGenerate ? 'Generar servicio' : 'Completa fecha y hora'}
+                >
+                  {generating ? <><Spinner animation="border" size="sm" /> Generando…</> : 'Generar servicio'}
+                </button>
+              </div>
+
+              {/* Resultado (preview) */}
+              {genResult && (
+                <div className="alert alert-success mt-3 mb-0">
+                  <div className="fw-semibold mb-1">{genResult?.message || 'Servicio generado correctamente'}</div>
+                  <div className="small">
+                    ID: <span className="text-monospace">{genResult?.data?._id || '—'}</span><br />
+                    Fecha: {genResult?.data?.date ? new Date(genResult.data.date).toLocaleDateString() : '—'} · Hora: {genResult?.data?.time || '—'}<br />
+                    Tramos: {Array.isArray(genResult?.data?.segments) ? genResult.data.segments.length : 0} · Asientos: {genResult?.data?.seatMatrix ? Object.keys(genResult.data.seatMatrix).length : 0}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </ModalBase>
       </main>
     </div>
   );
