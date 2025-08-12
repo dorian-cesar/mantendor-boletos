@@ -77,6 +77,26 @@ const Rutas = () => {
     }
   };
 
+  // Filtro de tabla
+  const [filtro, setFiltro] = useState('');
+
+  // Lista filtrada (por nombre, origen, destino, o nombre de parada)
+  const rutasFiltradas = useMemo(() => {
+    const term = filtro.trim().toLowerCase();
+    if (!term) return rutas;
+    return rutas.filter(r => {
+      const name = (r?.name || '').toLowerCase();
+      const origen = (r?.stops?.[0]?.name || '').toLowerCase();
+      const destino = (r?.stops?.[r?.stops?.length - 1]?.name || '').toLowerCase();
+      const anyStop = (r?.stops || []).some(s => (s?.name || '').toLowerCase().includes(term));
+      return name.includes(term) || origen.includes(term) || destino.includes(term) || anyStop;
+    });
+  }, [rutas, filtro]);
+
+  // Para el chevron accesible
+  const isExpanded = (id) => rutasExpandida === id;
+
+
   // opcional: cargar cuando abres el modal de blocks
   useEffect(() => {
     if (modalBlocksVisible) fetchLayouts();
@@ -428,11 +448,26 @@ const Rutas = () => {
         </div>
 
         <div className="stats-box">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h4 className="mb-0">Listado de rutas maestras</h4>
-            <div className="d-flex gap-2">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">          
+            <h5 className="mb-0">Listado de Rutas Maestras</h5>
+            <div className="d-flex gap-2 w-100 w-md-auto">
+              <div className="input-group">
+                <span className="input-group-text"><i className="bi bi-search" /></span>
+                <input
+                  className="form-control"
+                  placeholder="Buscar por nombre, origen, destino o parada…"
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                />
+                {filtro && (
+                  <button className="btn btn-outline-secondary" onClick={() => setFiltro('')}>
+                    Limpiar
+                  </button>
+                )}
+              </div>
+
               <button
-                className="btn btn-outline-secondary btn-sm"
+                className="btn btn-outline-secondary"
                 disabled={actualizando}
                 onClick={async () => {
                   setActualizando(true);
@@ -448,23 +483,17 @@ const Rutas = () => {
                     setActualizando(false);
                   }
                 }}
+                title="Volver a cargar la lista"
+                aria-label="Actualizar lista de rutas"
               >
-                {actualizando ? (
-                  <Spinner animation="border" size="sm" />
-                ) : (
-                  <>
-                    <i className="bi bi-arrow-repeat me-1"></i> Actualizar
-                  </>
-                )}
+                {actualizando ? <Spinner animation="border" size="sm" /> : <><i className="bi bi-arrow-repeat" /> Actualizar</>}
               </button>
 
-              <button className="btn btn-primary btn-sm" onClick={abrirModalNuevaRuta}>
-                <i className="bi bi-plus-lg me-2"></i> Nueva ruta maestra
+              <button className="btn btn-primary" onClick={abrirModalNuevaRuta}>
+                <i className="bi bi-plus-lg me-1" /> Nueva ruta
               </button>
             </div>
-          </div>
-
-          <p className="text-muted">Haz click en cada ruta para ver detalle de paradas. Usa el botón de capa para ver sus bloques.</p>
+          </div>          
 
           {cargando ? (
             <div className="text-center py-4">
@@ -473,84 +502,124 @@ const Rutas = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-bordered table-hover align-middle">
+              <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
-                    <th>Nombre</th>
+                    <th style={{width: 48}} aria-label="Expandir"></th>
+                    <th>Ruta</th>
                     <th>Origen</th>
                     <th>Destino</th>
-                    <th>Acciones</th>
+                    <th style={{width: 120}}>Paradas</th>
+                    <th style={{width: 220}}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rutas.map((ruta) => {
+                  {rutasFiltradas.length === 0 && (
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                          <div>
+                            <strong>Sin resultados</strong>
+                            <div className="text-muted small">Prueba con otro término o limpia el filtro.</div>
+                          </div>
+                          {filtro && (
+                            <button className="btn btn-outline-secondary btn-sm" onClick={() => setFiltro('')}>
+                              Limpiar filtro
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {rutasFiltradas.map((ruta) => {
                     const origen = ruta?.stops?.[0]?.name || '';
                     const destino = ruta?.stops?.[ruta.stops.length - 1]?.name || '';
+                    const totalParadas = ruta?.stops?.length || 0;
+
                     return (
                       <React.Fragment key={ruta._id}>
-                        <tr
-                          onClick={() => toggleExpandirRuta(ruta._id)}
-                          style={{ cursor: 'pointer' }}
-                          className={rutasExpandida === ruta._id ? 'table-active' : ''}
-                        >
-                          <td title={rutasExpandida === ruta._id ? 'Ocultar paradas' : 'Ver paradas'}>
-                            <i
-                              className={`bi bi-chevron-right me-2 chevron-icon ${
-                                rutasExpandida === ruta._id ? 'rotated' : ''
-                              }`}
-                            ></i>
-                            {ruta.name}
-                          </td>
-                          <td>{origen}</td>
-                          <td>{destino}</td>
+                        <tr className={isExpanded(ruta._id) ? 'table-active' : ''}>
+                          {/* Chevron accesible */}
                           <td>
                             <button
-                              className="btn btn-sm btn-info me-2"
-                              title="Ver bloques de esta ruta"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleVerBlocks(ruta);
-                              }}
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={() => toggleExpandirRuta(ruta._id)}
+                              aria-expanded={isExpanded(ruta._id)}
+                              aria-controls={`stops-${ruta._id}`}
+                              title={isExpanded(ruta._id) ? 'Ocultar paradas' : 'Ver paradas'}
                             >
-                              <i className="bi bi-layers"></i>
+                              <i className={`bi ${isExpanded(ruta._id) ? 'bi-chevron-down' : 'bi-chevron-right'}`} />
                             </button>
-                            <button
-                              className="btn btn-sm btn-danger"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEliminar(ruta._id);
-                              }}
-                            >
-                              <i className="bi bi-trash"></i>
-                            </button>
+                          </td>
+
+                          <td className="fw-semibold">{ruta.name}</td>
+                          <td>{origen}</td>
+                          <td>{destino}</td>
+
+                          {/* Badge de paradas */}
+                          <td>
+                            <span className="badge bg-light text-secondary border">{totalParadas}</span>
+                          </td>
+
+                          {/* Acciones agrupadas */}
+                          <td>
+                            <div className="btn-group btn-group-sm" role="group" aria-label="Acciones">
+                              <button
+                                className="btn btn-outline-primary"
+                                title="Ver bloques de esta ruta"
+                                aria-label="Ver bloques de esta ruta"
+                                onClick={() => handleVerBlocks(ruta)}
+                              >
+                                <i className="bi bi-grid-3x3-gap-fill me-1 d-none d-md-inline" />
+                                <span className="d-none d-md-inline">Bloques</span>
+                                <i className="bi bi-grid-3x3-gap-fill d-inline d-md-none" />
+                              </button>
+
+                              <button
+                                className="btn btn-outline-danger"
+                                title="Eliminar ruta maestra"
+                                aria-label="Eliminar ruta maestra"
+                                onClick={() => handleEliminar(ruta._id)}
+                              >
+                                <i className="bi bi-trash" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
 
-                        {rutasExpandida === ruta._id && (
-                          <tr>
-                            <td colSpan="4">
-                              <h6 className="mb-2">Paradas de esta ruta</h6>
-                              <div className="table-responsive">
-                                <table className="table table-sm table-striped mb-0">
-                                  <thead>
-                                    <tr>
-                                      <th>#</th>
-                                      <th>Nombre de la parada</th>
-                                      {/* <th className="text-muted">ID</th> */}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {[...(ruta.stops || [])]
-                                      .sort((a, b) => (a.order || 0) - (b.order || 0))
-                                      .map((stop) => (
-                                        <tr key={stop._id || `${stop.name}-${stop.order}`}>
-                                          <td>{stop.order}</td>
-                                          <td>{stop.name}</td>
-                                          {/* <td className="text-muted small">{stop._id}</td> */}
-                                        </tr>
-                                      ))}
-                                  </tbody>
-                                </table>
+                        {/* Fila expandida con paradas */}
+                        {isExpanded(ruta._id) && (
+                          <tr id={`stops-${ruta._id}`}>
+                            <td colSpan={6}>
+                              <div className="p-2 border rounded bg-light">
+                                <div className="d-flex align-items-center mb-2">
+                                  <i className="bi bi-signpost-2 me-2" />
+                                  <h6 className="mb-0">Paradas</h6>
+                                </div>
+
+                                <div className="table-responsive">
+                                  <table className="table table-sm table-striped mb-0">
+                                    <thead>
+                                      <tr>
+                                        <th style={{width: 60}}>#</th>
+                                        <th>Nombre</th>
+                                        {/* <th className="text-muted">ID</th> */}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {[...(ruta.stops || [])]
+                                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                        .map((stop) => (
+                                          <tr key={stop._id || `${stop.name}-${stop.order}`}>
+                                            <td>{stop.order}</td>
+                                            <td>{stop.name}</td>
+                                            {/* <td className="text-muted small">{stop._id}</td> */}
+                                          </tr>
+                                        ))}
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
                             </td>
                           </tr>

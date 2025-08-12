@@ -105,3 +105,7 @@
 .sortable-chosen { outline: 2px dashed var(--bs-primary); }
 .drag-handle { cursor: grab; }
 .drag-handle:active { cursor: grabbing; }
+
+/* Rotación suave del chevron si cambias a bi-chevron-right/down dentro del mismo botón */
+.chevron-icon { transition: transform .15s ease; }
+.table-hover tbody tr:hover > td { transition: background-color .12s ease; }
