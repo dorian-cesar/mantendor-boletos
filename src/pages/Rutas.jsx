@@ -117,6 +117,19 @@ const Rutas = () => {
     try { return JSON.parse(text); } catch { return { _raw: text }; }
   };
 
+  // helper cerrar modal
+  const closeBlocksModal = React.useCallback(() => {
+    setModalBlocksVisible(false);
+    setBlocksData(null);
+    setBlocksError('');
+    setRouteMasterForBlocks(null);
+    setBlockMode('view');
+    setEditingBlockId(null);
+    setBlockForm({ name: '', stops: [] });
+    setBlockLayoutId('');
+  }, []);
+
+
   // ---- CATALOGOS ----
   useEffect(() => {
     const fetchCiudades = async () => {
@@ -726,30 +739,7 @@ const Rutas = () => {
       <ModalBase
         visible={modalBlocksVisible}
         title={`Bloques — ${routeMasterForBlocks?.name || ''}`}
-        onClose={() => {
-          setModalBlocksVisible(false);
-          setBlocksData(null);
-          setBlocksError('');
-          setRouteMasterForBlocks(null);
-          setBlockMode('view');
-          setEditingBlockId(null);
-          setBlockForm({ name: '', stops: [] });
-          setBlockLayoutId('');
-        }}
-        footer={
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              setModalBlocksVisible(false);
-              setBlockMode('view');
-              setEditingBlockId(null);
-              setBlockForm({ name: '', stops: [] });
-              setBlockLayoutId('');
-            }}
-          >
-            Cerrar
-          </button>
-        }
+        onClose={closeBlocksModal}
       >
         {blocksLoading && (
           <div className="text-center py-3">
@@ -917,28 +907,23 @@ const Rutas = () => {
                     style={{
                       position: 'sticky',
                       bottom: 0,
-                      background: 'var(--bs-body-bg)',
+                      background: 'inherit',
                       zIndex: 2,
+                      borderBottomLeftRadius: '0.5rem',   
+                      borderBottomRightRadius: '0.5rem',  
                     }}
                   >
                     <div className="small text-muted">
-                      {(blockForm.stops || []).filter(s => s?.name).length} paradas
-                      {' · '}layout: {selectedLayout?.name || '—'}
+                      {(blockForm.stops || []).filter(s => s?.name).length} paradas · layout: {selectedLayout?.name || '—'}
                     </div>
 
                     <div className="d-flex gap-2">
-                      <button className="btn btn-secondary" onClick={cancelBlockForm}>
-                        Cancelar
-                      </button>
+                      <button className="btn btn-secondary" onClick={cancelBlockForm}>Cancelar</button>
                       <button
                         className="btn btn-primary"
                         onClick={saveBlock}
                         disabled={!canSave}
-                        title={
-                          canSave
-                            ? (blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios')
-                            : 'Completa: nombre, layout válido y al menos 2 paradas de la ruta'
-                        }
+                        title={canSave ? (blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios') : 'Completa: nombre, layout válido y al menos 2 paradas de la ruta'}
                       >
                         {blockMode === 'create' ? 'Crear bloque' : 'Guardar cambios'}
                       </button>
