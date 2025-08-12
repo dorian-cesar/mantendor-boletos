@@ -35,12 +35,19 @@ const Rutas = () => {
   const [layoutsLoading, setLayoutsLoading] = useState(false);
   const [layoutsError, setLayoutsError] = useState('');
 
-  // Solo paradas definidas en la ruta maestra actual
-  const allowedRMStops = useMemo(() => {
-    const arr = Array.isArray(routeMasterForBlocks?.stops) ? routeMasterForBlocks.stops : [];
-    const ordered = arr.slice().sort((a,b) => (a.order || 0) - (b.order || 0));
-    return [...new Set(ordered.map(s => s?.name).filter(Boolean))];
-  }, [routeMasterForBlocks]);  
+  // Opciones de paradas permitidas desde la ruta maestra, con su orden original
+  const allowedRMStopOptions = useMemo(() => {
+    const stops = routeMasterForBlocks?.stops || [];
+    return [...stops]
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map(s => ({ name: s.name, order: s.order }));
+  }, [routeMasterForBlocks]);
+
+  const allowedRMStops = useMemo(
+    () => allowedRMStopOptions.map(s => s.name),
+    [allowedRMStopOptions]
+  );
+
 
   const fetchLayouts = async () => {
     setLayoutsLoading(true);
@@ -880,10 +887,13 @@ const Rutas = () => {
                           }}
                         >
                           <option value="">Selecciona ciudad</option>
-                          {allowedRMStops.map((name) => (
-                            <option key={name} value={name}>{name}</option>
+                          {allowedRMStopOptions.map(({ name, order }) => (
+                            <option key={name} value={name}>
+                              {String(order).padStart(2, '0')} — {name}
+                            </option>
                           ))}
                         </select>
+
 
                         {/* Eliminar */}
                         <button
