@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import Sidebar from '@components/Sidebar/Sidebar';
 import '@components/Dashboard/dashboard.css';
 import { Spinner } from 'react-bootstrap';
@@ -237,7 +237,7 @@ const Rutas = () => {
     }
     setBlocksLoading(true);
     setBlocksError('');
-    setBlocksData(null);
+    setBlocksData(null);  
 
     const url = `https://boletos.dev-wit.com/api/route-blocks/byRouteMaster/${encodeURIComponent(id)}`;
 
@@ -254,6 +254,10 @@ const Rutas = () => {
       }
 
       setBlocksData(body);
+      setBlocksCountMap(prev => ({
+      ...prev,
+      [id]: typeof body?.totalBlocks === 'number' ? body.totalBlocks : (prev[id] ?? 0)
+      }));
     } catch (e) {
       console.error('fetchBlocksByRouteMaster error:', e);
       setBlocksError(e.message || 'No se pudieron obtener los bloques para esta ruta maestra.');
@@ -281,6 +285,34 @@ const Rutas = () => {
     return nameOk && stopsOk && layoutOk;
   }, [blockForm, blockLayoutId, allowedRMStops]);
 
+  // Totales de bloques por route master
+  const [blocksCountMap, setBlocksCountMap] = useState({});
+  const blocksCountFetching = React.useRef(new Set());
+
+  const ensureBlocksCount = useCallback(async (id) => {
+    if (!id) return;
+    if (blocksCountFetching.current.has(id)) return;
+    if (Object.prototype.hasOwnProperty.call(blocksCountMap, id)) return;
+
+    blocksCountFetching.current.add(id);
+    try {
+      const res = await fetch(`https://boletos.dev-wit.com/api/route-blocks/byRouteMaster/${encodeURIComponent(id)}`);
+      const text = await res.text();
+      let body; try { body = JSON.parse(text); } catch { body = null; }
+      const total = (body && typeof body.totalBlocks === 'number') ? body.totalBlocks : 0;
+      setBlocksCountMap(prev => ({ ...prev, [id]: total }));
+    } catch {
+      setBlocksCountMap(prev => ({ ...prev, [id]: 0 }));
+    } finally {
+      blocksCountFetching.current.delete(id);
+    }
+  }, [blocksCountMap]);
+
+  // Cargar (solo) para las rutas visibles/filtradas
+  useEffect(() => {
+    rutasFiltradas.forEach(r => ensureBlocksCount(r._id));
+  }, [rutasFiltradas, ensureBlocksCount]);
+
   // Helpers UI para el formulario de block 
   const addBlockStop = () => {
     if (!allowedRMStops.length) {
@@ -306,9 +338,9 @@ const Rutas = () => {
   const openCreateBlock = () => {
     setEditingBlockId(null);
     setBlockForm({ name: '', stops: [] });
-    setBlockLayoutId('');           // limpiar selección
+    setBlockLayoutId('');           
     setBlockMode('create');
-    fetchLayouts();                 // cargar layouts
+    fetchLayouts();                 
   };
 
   const openEditBlock = (bloque) => {
@@ -322,7 +354,7 @@ const Rutas = () => {
     });
     setBlockLayoutId(bloque?.layout?._id || bloque?.layoutId || bloque?.layout || '');
     setBlockMode('edit');
-    fetchLayouts();                 // cargar layouts
+    fetchLayouts();                
   };
 
   useEffect(() => {
@@ -523,14 +555,15 @@ const Rutas = () => {
                     <th>Ruta</th>
                     <th>Origen</th>
                     <th>Destino</th>
+                    <th style={{width: 110}}>Bloques</th> 
                     <th style={{width: 120}}>Paradas</th>
-                    <th style={{width: 220}}>Acciones</th>
+                    <th style={{width: 240}}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rutasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <div className="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
                           <div>
                             <strong>Sin resultados</strong>
@@ -550,11 +583,11 @@ const Rutas = () => {
                     const origen = ruta?.stops?.[0]?.name || '';
                     const destino = ruta?.stops?.[ruta.stops.length - 1]?.name || '';
                     const totalParadas = ruta?.stops?.length || 0;
+                    const totalBloques = blocksCountMap[ruta._id];
 
                     return (
                       <React.Fragment key={ruta._id}>
                         <tr className={isExpanded(ruta._id) ? 'table-active' : ''}>
-                          {/* Chevron accesible */}
                           <td>
                             <button
                               className="btn btn-sm btn-outline-secondary"
@@ -571,12 +604,21 @@ const Rutas = () => {
                           <td>{origen}</td>
                           <td>{destino}</td>
 
-                          {/* Badge de paradas */}
+                          {/* Nueva celda: total de bloques */}
+                          <td>
+                            {totalBloques == null ? (
+                              <Spinner animation="border" size="sm" />
+                            ) : (
+                              <span className="badge bg-info-subtle text-info-emphasis border">{totalBloques}</span>
+                            )}
+                          </td>
+
+                          {/* Paradas */}
                           <td>
                             <span className="badge bg-light text-secondary border">{totalParadas}</span>
                           </td>
 
-                          {/* Acciones agrupadas */}
+                          {/* Acciones */}
                           <td>
                             <div className="btn-group btn-group-sm" role="group" aria-label="Acciones">
                               <button
@@ -602,10 +644,10 @@ const Rutas = () => {
                           </td>
                         </tr>
 
-                        {/* Fila expandida con paradas */}
+                        {/* Fila expandida de paradas */}
                         {isExpanded(ruta._id) && (
                           <tr id={`stops-${ruta._id}`}>
-                            <td colSpan={6}>
+                            <td colSpan={7}>
                               <div className="p-2 border rounded bg-light">
                                 <div className="d-flex align-items-center mb-2">
                                   <i className="bi bi-signpost-2 me-2" />
@@ -618,7 +660,6 @@ const Rutas = () => {
                                       <tr>
                                         <th style={{width: 60}}>#</th>
                                         <th>Nombre</th>
-                                        {/* <th className="text-muted">ID</th> */}
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -628,7 +669,6 @@ const Rutas = () => {
                                           <tr key={stop._id || `${stop.name}-${stop.order}`}>
                                             <td>{stop.order}</td>
                                             <td>{stop.name}</td>
-                                            {/* <td className="text-muted small">{stop._id}</td> */}
                                           </tr>
                                         ))}
                                     </tbody>
@@ -648,7 +688,7 @@ const Rutas = () => {
         </div>
       </main>
 
-      {/* MODAL RUTA (solo crear por ahora) */}
+      {/* MODAL NUEVA RUTA */}
       <ModalBase
         visible={modalRutaVisible}
         title={rutaEditando ? 'Editar Ruta Maestra' : 'Nueva Ruta Maestra'}
