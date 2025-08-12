@@ -104,6 +104,90 @@ const Buses = () => {
     }
   };
 
+  // --- Filtro / sort / densidad ---
+  const [filtro, setFiltro] = useState('');
+  const [soloDisponibles, setSoloDisponibles] = useState('all'); // 'all' | 'yes' | 'no'
+  const [sortKey, setSortKey] = useState('patente');
+  const [sortDir, setSortDir] = useState('asc'); // 'asc' | 'desc'
+  const [compacto, setCompacto] = useState(false);
+
+  const normalize = (v) => (v ?? '').toString().toLowerCase();
+  const asDate = (iso) => (iso ? new Date(iso) : null);
+
+  // Mapea layout id->obj para mostrar nombre/ordenar
+  const layoutNameOf = (bus) => {
+    const l = (typeof bus.layout === 'object' && bus.layout) ? bus.layout : layoutsMap[bus.layout];
+    return l?.name || '';
+  };
+
+  // Filtrado
+  const busesFiltrados = useMemo(() => {
+    const term = normalize(filtro);
+    return (buses || []).filter(b => {
+      if (soloDisponibles === 'yes' && !b.disponible) return false;
+      if (soloDisponibles === 'no' && b.disponible) return false;
+
+      if (!term) return true;
+      const hay = [
+        b.patente, b.marca, b.modelo,
+        String(b.anio),
+        layoutNameOf(b),
+      ].some(x => normalize(x).includes(term));
+      return hay;
+    });
+  }, [buses, filtro, soloDisponibles]);
+
+  // Ordenamiento
+  const busesOrdenados = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const arr = [...busesFiltrados];
+    arr.sort((a, b) => {
+      const by = (k) => {
+        switch (k) {
+          case 'patente': return normalize(a.patente).localeCompare(normalize(b.patente));
+          case 'marca': return normalize(a.marca).localeCompare(normalize(b.marca));
+          case 'modelo': return normalize(a.modelo).localeCompare(normalize(b.modelo));
+          case 'anio': return (a.anio ?? 0) - (b.anio ?? 0);
+          case 'revision_tecnica': {
+            const A = asDate(a.revision_tecnica)?.getTime() ?? 0;
+            const B = asDate(b.revision_tecnica)?.getTime() ?? 0;
+            return A - B;
+          }
+          case 'permiso_circulacion': {
+            const A = asDate(a.permiso_circulacion)?.getTime() ?? 0;
+            const B = asDate(b.permiso_circulacion)?.getTime() ?? 0;
+            return A - B;
+          }
+          case 'layout': return normalize(layoutNameOf(a)).localeCompare(normalize(layoutNameOf(b)));
+          case 'disponible': return Number(a.disponible) - Number(b.disponible);
+          default: return 0;
+        }
+      };
+      return by(sortKey) * dir;
+    });
+    return arr;
+  }, [busesFiltrados, sortKey, sortDir]);
+
+  // Icono de orden
+  const sortIcon = (key) =>
+    sortKey !== key ? 'bi bi-arrow-down-up text-muted' :
+    sortDir === 'asc' ? 'bi bi-sort-down' : 'bi bi-sort-up';
+
+  // Cambiar orden
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const canSave = useMemo(() => {
+    const p = (formBus.patente || '').trim();
+    const marca = (formBus.marca || '').trim();
+    const modelo = (formBus.modelo || '').trim();
+    const anio = Number(formBus.anio);
+    const y = new Date().getFullYear() + 1; // permite próximo año
+    return !!p && !!marca && !!modelo && anio >= 1990 && anio <= y;
+  }, [formBus]);
+
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="buses" />
@@ -114,82 +198,105 @@ const Buses = () => {
         </div>
 
         <div className="stats-box">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h4 className="mb-0">Buses registrados</h4>
+          <div className="d-flex flex-column gap-2 mb-3">
+            {/* Fila 1: título y acciones */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <h4 className="mb-0">Buses registrados</h4>                
+              </div>
 
-            <div className="d-flex gap-2">
-              <button
-                className="btn btn-outline-secondary btn-sm"
-                disabled={actualizando}
-                onClick={async () => {
-                  setActualizando(true);
-                  try {
-                    const res = await fetch('https://boletos.dev-wit.com/api/buses/');
-                    if (!res.ok) throw new Error('Error al obtener buses desde el servidor');
-                    const data = await res.json();
-
-                    setBuses((prev) => {
-                      const nuevos = [];
-
-                      data.forEach((nuevo) => {
-                        const antiguo = prev.find(b => b._id === nuevo._id);
-                        const haCambiado =
-                          !antiguo ||
-                          antiguo.patente !== nuevo.patente ||
-                          antiguo.marca !== nuevo.marca ||
-                          antiguo.modelo !== nuevo.modelo ||
-                          antiguo.anio !== nuevo.anio ||
-                          antiguo.revision_tecnica !== nuevo.revision_tecnica ||
-                          antiguo.permiso_circulacion !== nuevo.permiso_circulacion ||
-                          antiguo.disponible !== nuevo.disponible ||
-                          (
-                            ((typeof antiguo.layout === 'object' ? antiguo.layout?._id : antiguo.layout) || null)
-                            !==
-                            ((typeof nuevo.layout === 'object' ? nuevo.layout?._id : nuevo.layout) || null)
-                        );
-                        nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  disabled={actualizando}
+                  onClick={async () => {
+                    setActualizando(true);
+                    try {
+                      const res = await fetch('https://boletos.dev-wit.com/api/buses/');
+                      if (!res.ok) throw new Error('Error al obtener buses desde el servidor');
+                      const data = await res.json();
+                      setBuses((prev) => {
+                        const nuevos = [];
+                        data.forEach((nuevo) => {
+                          const antiguo = prev.find(b => b._id === nuevo._id);
+                          const haCambiado =
+                            !antiguo ||
+                            antiguo.patente !== nuevo.patente ||
+                            antiguo.marca !== nuevo.marca ||
+                            antiguo.modelo !== nuevo.modelo ||
+                            antiguo.anio !== nuevo.anio ||
+                            antiguo.revision_tecnica !== nuevo.revision_tecnica ||
+                            antiguo.permiso_circulacion !== nuevo.permiso_circulacion ||
+                            antiguo.disponible !== nuevo.disponible ||
+                            (((typeof antiguo.layout === 'object' ? antiguo.layout?._id : antiguo.layout) || null) !==
+                            ((typeof nuevo.layout === 'object' ? nuevo.layout?._id : nuevo.layout) || null));
+                          nuevos.push(haCambiado || !antiguo ? nuevo : antiguo);
+                        });
+                        const ids = data.map(b => b._id);
+                        return nuevos.filter(b => ids.includes(b._id));
                       });
+                      showToast('Actualizado', 'Se sincronizó la lista de buses');
+                    } catch (err) {
+                      console.error(err);
+                      showToast('Error al actualizar', err.message || 'No se pudo actualizar la lista de buses', true);
+                    } finally {
+                      setActualizando(false);
+                    }
+                  }}
+                >
+                  {actualizando ? <Spinner animation="border" size="sm" /> : (<><i className="bi bi-arrow-repeat me-1" />Actualizar</>)}
+                </button>
 
-                      const ids = data.map(b => b._id);
-                      return nuevos.filter(b => ids.includes(b._id));
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setBusEditando(null);
+                    setFormBus({
+                      patente: '',
+                      marca: '',
+                      modelo: '',
+                      anio: '',
+                      revision_tecnica: '',
+                      permiso_circulacion: '',
+                      disponible: true,
+                      layout: '',
                     });
+                    setModalVisible(true);
+                  }}
+                >
+                  <i className="bi bi-plus-lg me-1" /> Nuevo Bus
+                </button>
+              </div>
+            </div>
 
-                    showToast('Actualizado', 'Se sincronizó la lista de buses');
-                  } catch (err) {
-                    console.error(err);
-                    showToast('Error al actualizar', err.message || 'No se pudo actualizar la lista de buses', true);
-                  } finally {
-                    setActualizando(false);
-                  }
-                }}
-              >
-                {actualizando ? (
-                  <Spinner animation="border" size="sm" />
-                ) : (
-                  <>
-                    <i className="bi bi-arrow-repeat me-1"></i> Actualizar
-                  </>
+            {/* Fila 2: buscador, filtros y densidad */}
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <div className="input-group" style={{ minWidth: 260 }}>
+                <span className="input-group-text"><i className="bi bi-search" /></span>
+                <input
+                  className="form-control"
+                  placeholder="Buscar por patente, marca, modelo o layout…"
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                  aria-label="Buscar buses"
+                />
+                {filtro && (
+                  <button className="btn btn-outline-secondary" onClick={() => setFiltro('')}>
+                    Limpiar
+                  </button>
                 )}
-              </button>
+              </div>
 
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  setFormBus({
-                    patente: '',
-                    marca: '',
-                    modelo: '',
-                    anio: '',
-                    revision_tecnica: '',
-                    permiso_circulacion: '',
-                    disponible: true,
-                    layout: '',
-                  });
-                  setModalVisible(true);
-                }}
-              >
-                <i className="bi bi-plus-lg me-2"></i> Nuevo Bus
-              </button>
+              <div className="btn-group btn-group-sm" role="group" aria-label="Disponibilidad">
+                <button className={`btn btn-outline-secondary ${soloDisponibles==='all' ? 'active' : ''}`} onClick={()=>setSoloDisponibles('all')}>Todos</button>
+                <button className={`btn btn-outline-secondary ${soloDisponibles==='yes' ? 'active' : ''}`} onClick={()=>setSoloDisponibles('yes')}>Disponibles</button>
+                <button className={`btn btn-outline-secondary ${soloDisponibles==='no' ? 'active' : ''}`} onClick={()=>setSoloDisponibles('no')}>No disponibles</button>
+              </div>
+
+              <div className="form-check form-switch ms-auto">
+                <input className="form-check-input" type="checkbox" id="compactSwitch" checked={compacto} onChange={()=>setCompacto(v=>!v)} />
+                <label className="form-check-label" htmlFor="compactSwitch">Compactar filas</label>
+              </div>
             </div>
           </div>
 
@@ -200,22 +307,40 @@ const Buses = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-bordered table-hover align-middle">
+              <table className={`table ${compacto ? 'table-sm' : ''} table-hover align-middle`}>
                 <thead className="table-light">
                   <tr>
-                    <th>Patente</th>
-                    <th>Marca</th>
-                    <th>Modelo</th>
-                    <th>Año</th>
-                    <th>Revisión Técnica</th>
-                    <th>Permiso Circulación</th>
-                    <th>Layout</th>
-                    <th>Disponible</th>
+                    <th role="button" onClick={()=>toggleSort('patente')}>Patente <i className={sortIcon('patente')} /></th>
+                    <th role="button" onClick={()=>toggleSort('marca')}>Marca <i className={sortIcon('marca')} /></th>
+                    <th role="button" onClick={()=>toggleSort('modelo')}>Modelo <i className={sortIcon('modelo')} /></th>
+                    <th role="button" onClick={()=>toggleSort('anio')}>Año <i className={sortIcon('anio')} /></th>
+                    <th role="button" onClick={()=>toggleSort('revision_tecnica')}>Revisión Técnica <i className={sortIcon('revision_tecnica')} /></th>
+                    <th role="button" onClick={()=>toggleSort('permiso_circulacion')}>Permiso Circulación <i className={sortIcon('permiso_circulacion')} /></th>
+                    <th role="button" onClick={()=>toggleSort('layout')}>Layout <i className={sortIcon('layout')} /></th>
+                    <th role="button" onClick={()=>toggleSort('disponible')}>Disponible <i className={sortIcon('disponible')} /></th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {buses.map((bus) => (
+                  {busesOrdenados.length === 0 && (
+                    <tr>
+                      <td colSpan={9}>
+                        <div className="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                          <div>
+                            <strong>Sin resultados</strong>
+                            <div className="text-muted small">Prueba con otro término o ajusta los filtros.</div>
+                          </div>
+                          {(filtro || soloDisponibles !== 'all') && (
+                            <button className="btn btn-outline-secondary btn-sm" onClick={() => { setFiltro(''); setSoloDisponibles('all'); }}>
+                              Limpiar filtros
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {busesOrdenados.map((bus) => (
                     <tr key={bus._id}>
                       <td>{bus.patente}</td>
                       <td>{bus.marca}</td>
@@ -223,7 +348,11 @@ const Buses = () => {
                       <td>{bus.anio}</td>
                       <td>{formatearFecha(bus.revision_tecnica)}</td>
                       <td>{formatearFecha(bus.permiso_circulacion)}</td>
-                      <td>
+                      <td title={
+                        (typeof bus.layout === 'object' && bus.layout?.name)
+                        || layoutsMap[bus.layout]?.name
+                        || (typeof bus.layout === 'string' ? bus.layout : '')
+                      }>
                         {layoutsLoading ? (
                           <Spinner animation="border" size="sm" />
                         ) : (
@@ -233,42 +362,42 @@ const Buses = () => {
                         )}
                       </td>
                       <td>
-                        {bus.disponible ? (
-                          <span className="badge bg-success">Sí</span>
-                        ) : (
-                          <span className="badge bg-danger">No</span>
-                        )}
+                        {bus.disponible ? <span className="badge bg-success">Sí</span> : <span className="badge bg-danger">No</span>}
                       </td>
                       <td>
-                        <button
-                          className="btn btn-sm btn-warning me-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setBusEditando(bus);
-                            setFormBus({
-                              patente: bus.patente,
-                              marca: bus.marca,
-                              modelo: bus.modelo,
-                              anio: bus.anio,
-                              revision_tecnica: bus.revision_tecnica.slice(0, 10),
-                              permiso_circulacion: bus.permiso_circulacion.slice(0, 10),
-                              disponible: bus.disponible,
-                            });
-                            setModalVisible(true);
-                          }}
-                        >
-                          <i className="bi bi-pencil-square"></i>
-                        </button>
+                        <div className="btn-group btn-group-sm" role="group">
+                          <button
+                            className="btn btn-outline-warning"
+                            title="Editar bus"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBusEditando(bus);
+                              setFormBus({
+                                patente: bus.patente,
+                                marca: bus.marca,
+                                modelo: bus.modelo,
+                                anio: bus.anio,
+                                revision_tecnica: bus.revision_tecnica.slice(0, 10),
+                                permiso_circulacion: bus.permiso_circulacion.slice(0, 10),
+                                disponible: bus.disponible,
+                                layout: typeof bus.layout === 'object' && bus.layout
+                                  ? bus.layout._id
+                                  : (typeof bus.layout === 'string' ? bus.layout : ''),
+                              });
+                              setModalVisible(true);
+                            }}
+                          >
+                            <i className="bi bi-pencil-square" />
+                          </button>
 
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEliminar(bus._id);
-                          }}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                          <button
+                            className="btn btn-outline-danger"
+                            title="Eliminar bus"
+                            onClick={(e) => { e.stopPropagation(); handleEliminar(bus._id); }}
+                          >
+                            <i className="bi bi-trash" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -291,9 +420,7 @@ const Buses = () => {
               revision_tecnica: '',
               permiso_circulacion: '',
               disponible: true,
-              layout: typeof bus.layout === 'object' && bus.layout
-                ? bus.layout._id
-                : (typeof bus.layout === 'string' ? bus.layout : ''),
+              layout: '',
             });
           }}
           footer={
@@ -307,7 +434,8 @@ const Buses = () => {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={guardando}
+                disabled={!canSave || guardando}
+                title={canSave ? 'Guardar cambios' : 'Completa patente, marca, modelo y año válido'}
                 onClick={async () => {
                   setGuardando(true);
                   try {
@@ -323,24 +451,13 @@ const Buses = () => {
                     });
 
                     if (!res.ok) throw new Error('Error al guardar el bus');
-
                     const busGuardado = await res.json();
 
-                    setBuses((prev) => {
-                      if (busEditando) {
-                        return prev.map((bus) =>
-                          bus._id === busEditando._id ? busGuardado : bus
-                        );
-                      } else {
-                        return [...prev, busGuardado];
-                      }
-                    });
-
-                    showToast(
-                      'Éxito',
-                      busEditando ? 'Bus actualizado correctamente' : 'Bus creado correctamente'
+                    setBuses((prev) =>
+                      busEditando ? prev.map((b) => (b._id === busEditando._id ? busGuardado : b)) : [...prev, busGuardado]
                     );
 
+                    showToast('Éxito', busEditando ? 'Bus actualizado correctamente' : 'Bus creado correctamente');
                     setModalVisible(false);
                     setBusEditando(null);
                   } catch (err) {
@@ -351,7 +468,7 @@ const Buses = () => {
                   }
                 }}
               >
-                {guardando ? 'Guardando...' : 'Guardar'}
+                {guardando ? 'Guardando…' : 'Guardar'}
               </button>
             </>
           }
@@ -363,7 +480,8 @@ const Buses = () => {
                 type="text"
                 className="form-control"
                 value={formBus.patente}
-                onChange={(e) => setFormBus({ ...formBus, patente: e.target.value })}
+                onChange={(e) => setFormBus({ ...formBus, patente: e.target.value.toUpperCase().replace(/\s+/g,'') })}
+                placeholder="Ej: ABCD16"
               />
             </div>
             <div className="col-md-6">
@@ -391,6 +509,8 @@ const Buses = () => {
                 className="form-control"
                 value={formBus.anio}
                 onChange={(e) => setFormBus({ ...formBus, anio: Number(e.target.value) })}
+                min="1990"
+                max={new Date().getFullYear() + 1}
               />
             </div>
             <div className="col-md-6">

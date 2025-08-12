@@ -109,3 +109,10 @@
 /* Rotación suave del chevron si cambias a bi-chevron-right/down dentro del mismo botón */
 .chevron-icon { transition: transform .15s ease; }
 .table-hover tbody tr:hover > td { transition: background-color .12s ease; }
+
+.table th[role="button"] {
+  cursor: pointer;
+  user-select: none;
+}
+.table th[role="button"] i { margin-left: .25rem; }
+.table-hover tbody tr:hover > td { transition: background-color .12s ease; }
