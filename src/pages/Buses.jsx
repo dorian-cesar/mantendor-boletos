@@ -367,7 +367,7 @@ const Buses = () => {
                       <td>
                         <div className="btn-group btn-group-sm" role="group">
                           <button
-                            className="btn btn-outline-warning"
+                            className="btn btn-outline-primary"
                             title="Editar bus"
                             onClick={(e) => {
                               e.stopPropagation();
