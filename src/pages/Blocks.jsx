@@ -93,9 +93,9 @@ const Blocks = () => {
     const okTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(genForm.time || '');
     return !!blockForGen && okDate && okTime;
   }, [blockForGen, genForm]);
-
+    
   const generateService = async () => {
-    if (!canGenerate) return;
+    if (!canGenerate || !blockForGen) return;
 
     const blockId = blockForGen._id;
     const layId = typeof blockForGen.layout === 'object'
@@ -107,42 +107,38 @@ const Blocks = () => {
       return;
     }
 
-    const isoDate = new Date(`${genForm.date}T00:00:00`).toISOString();
-    const time = genForm.time;
-
-    // Intentos tolerantes con routeBlock / routeBlockId, siempre incluyendo layoutId
-    const payloads = [
-      { routeBlock: blockId,  layoutId: layId, date: isoDate, time, crew: [] },
-      { routeBlockId: blockId, layoutId: layId, date: isoDate, time, crew: [] },
-    ];
+    const payload = {
+      routeBlockId: blockId,
+      date: genForm.date,      
+      time: genForm.time,     
+      layoutId: layId
+    };
 
     setGenerating(true);
     setGenResult(null);
     try {
-      let lastErrBody = null;
-      for (const p of payloads) {
-        try {
-          const res = await fetch('https://boletos.dev-wit.com/api/route-blocks-generated/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(p),
-          });
-          const body = await parseResponseSafe?.(res) || await parseSafe(res);
-          if (res.ok) {
-            setGenResult(body);
-            showToast('Servicio generado', `Bloque "${blockForGen.name}" — ${genForm.date} ${genForm.time}`);
-            return;
-          } else {
-            lastErrBody = body;
-          }
-        } catch {
-          // probar siguiente shape
-        }
+      // Úsalo con slash final (evita 404/redirects en CORS)
+      const res = await fetch("https://boletos.dev-wit.com/api/route-blocks-generated/generate/", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let body;
+      try { body = JSON.parse(text); } catch { body = { raw: text }; }
+
+      if (!res.ok) {
+        const msg = body?.error || body?.message || `${res.status} ${res.statusText}`;
+        throw new Error(msg);
       }
-      throw new Error(lastErrBody?.error || lastErrBody?.message || 'No se pudo generar el servicio');
+
+      setGenResult(body);
+      showToast('Servicio generado', `Bloque "${blockForGen.name}" — ${genForm.date} ${genForm.time}`);
     } catch (e) {
-      console.error('[Generate Service] Error', e);
-      showToast('Error', e.message || 'Fallo al generar el servicio', true);
+      console.error('[Generate Service] Payload →', payload);
+      console.error('[Generate Service] Error →', e);
+      showToast('Error', e.message || 'No se pudo generar el servicio', true);
     } finally {
       setGenerating(false);
     }
