@@ -328,7 +328,10 @@ const Layout = () => {
     switch (currentStep) {
       case 1:
         return (
+          
           <div className="row g-3">
+            <h6 className="text-uppercase text-muted fw-semibold mb-2">Configuración</h6>
+
             <div className="col-md-6">
               <label className="form-label">Nombre del Layout*</label>
               <input
@@ -454,6 +457,7 @@ const Layout = () => {
       case 2:
         return (
           <div className="row g-3">
+            <h6 className="text-uppercase text-muted fw-semibold mb-2">Seleccione el tipo de asiento</h6>
             <div className="col-md-6">
               <label className="form-label">Tipo de Asiento - Piso 1*</label>
               <select
@@ -528,6 +532,50 @@ const Layout = () => {
       default:
         return null;
     }
+  };
+
+  const Stepper = ({ currentStep, total = 2 }) => {
+    const steps = [
+      { id: 1, label: 'Configuración' },
+      { id: 2, label: 'Detalles' },
+    ];
+    const pct = total > 1 ? ((currentStep - 1) / (total - 1)) * 100 : 0;
+
+    return (
+      <div className="mb-3">
+        <div className="d-flex align-items-center justify-content-between">
+          {steps.map((s) => {
+            const active = currentStep === s.id;
+            const completed = currentStep > s.id;
+            return (
+              <div key={s.id} className="text-center flex-fill">
+                <div
+                  className={`mx-auto rounded-circle d-flex align-items-center justify-content-center
+                    ${active ? 'bg-primary text-white' : completed ? 'bg-success text-white' : 'bg-light text-muted'}`}
+                  style={{ width: 36, height: 36, fontWeight: 600 }}
+                  aria-current={active ? 'step' : undefined}
+                >
+                  {s.id}
+                </div>
+                <div className={`mt-2 small ${active ? 'fw-semibold text-body' : 'text-muted'}`}>{s.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="progress mt-3" style={{ height: 6 }} aria-hidden="true">
+          <div className="progress-bar" role="progressbar" style={{ width: `${pct}%` }} />
+        </div>
+
+        <div className="text-muted small mt-2 d-flex justify-content-between">
+          <span className="visually-hidden" aria-live="polite">
+            Estás en el paso {currentStep} de {steps.length}
+          </span>
+          <span>Paso {currentStep} de {steps.length}</span>
+          {currentStep === 1 ? <span>Completa los campos para continuar</span> : <span>Revisa y guarda</span>}
+        </div>
+      </div>
+    );
   };
   
   return (
@@ -733,32 +781,8 @@ const Layout = () => {
           </div>
         }
       >
-        <div className="mb-4">
-          <ul className="nav nav-pills nav-justified">
-            <li className="nav-item">
-              <button 
-                className={`nav-link ${currentStep === 1 ? 'active' : ''}`}
-                onClick={() => setCurrentStep(1)}
-              >
-                <i className="bi bi-gear me-2"></i> Configuración
-              </button>
-            </li>
-            <li className="nav-item">
-              <button 
-                className={`nav-link ${currentStep === 2 ? 'active' : ''}`}
-                onClick={() => setCurrentStep(2)}
-                disabled={
-                  !formLayout.name ||
-                  !formLayout.pisos ||
-                  !formLayout.rows_piso_1 ||
-                  !formLayout.columns_piso_1 ||
-                  (formLayout.pisos === '2' && (!formLayout.rows_piso_2 || !formLayout.columns_piso_2))
-                }
-              >
-                <i className="bi bi-card-checklist me-2"></i> Detalles
-              </button>
-            </li>
-          </ul>
+        <div className="mb-2">
+          <Stepper currentStep={currentStep} total={2} />
         </div>
 
         {renderStepContent()}
